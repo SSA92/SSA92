@@ -109,18 +109,18 @@ class DrivingClient(DrivingController):
         Y_list = [Y]
 
         for i in range(19):
-            C = 180 - (sensing_info.track_forward_angles[i + 1] - sensing_info.track_forward_angles[i]) - A
-            temp = sensing_info.track_forward_angles[i + 1] * math.sin(math.radians(C)) / sensing_info.distance_to_way_points[i]
+            C = 180 - (sensing_info.track_forward_angles[i]) - A
+            temp = sensing_info.track_forward_angles[i] * math.sin(math.radians(C)) / sensing_info.distance_to_way_points[i + 1]
             
             temp = min(max(temp, -1), 1)
 
             A = math.degrees(math.asin(temp))
             car_to_point_angle = 180 - C - A
 
-            Angle_list.append(car_to_point_angle)
+            Angle_list.append(car_to_point_angle + Angle_list[i - 1])
 
-            X = -math.cos(math.radians(sum(Angle_list[:i + 1]))) * sensing_info.distance_to_way_points[i + 1]
-            Y = math.sin(math.radians(sum(Angle_list[:i + 1]))) * sensing_info.distance_to_way_points[i + 1]
+            X = -math.cos(math.radians(Angle_list[i])) * sensing_info.distance_to_way_points[i + 1]
+            Y = math.sin(math.radians(Angle_list[i])) * sensing_info.distance_to_way_points[i + 1]
 
             X_list.append(X)
             Y_list.append(Y)
@@ -128,19 +128,24 @@ class DrivingClient(DrivingController):
             # print(car_to_point_angle)
             # print('X, Y : ', X, Y)
 
-        target = int(sensing_info.speed / 20)
-        print(len(Angle_list))
-        print('Angle_list : ', Angle_list)
-        print('X_list : ', X_list)
-        print('Y_list : ', Y_list)
-        print('target X : ', X_list[target], 'target Y : ', Y_list[target])
+        def round3(n):
+            return round(n,3)
+
+        target = max(int(sensing_info.speed / 20), 5)
+        
+        print('Angle_list : ', list(map(round3, Angle_list)))
+        print('X_list : ', list(map(round3, X_list)))
+        print('Y_list : ', list(map(round3, Y_list)))
+        print('target X : ', X_list[target], ', target Y : ', Y_list[target])
         print('사이각도 : ', sensing_info.track_forward_angles[target])
         print('직선거리 : ', sensing_info.distance_to_way_points[target])
 
+
         # 왜 안되지
-        # https://iridescentboy.tistory.com/69
-        delta = math.atan2(2 * X_list[target] * L, sensing_info.distance_to_way_points[target] ** 2)
-        print('delta : ', delta)
+        # https://iridescentboy.tistory.com/6
+        delta = math.atan(2 * X_list[target] * L / (sensing_info.distance_to_way_points[target] ** 2))
+        print('delta : ', delta, '(rad)')
+        print('delta : ', math.degrees(delta) - sensing_info.moving_angle, '(deg)')
 
         # a = math.asin(sensing_info.distance_to_way_points[0] / (2 * max(X, Y))) * 2
         # b = a * sensing_info.speed * 0.1 / max(X, Y)
@@ -149,7 +154,8 @@ class DrivingClient(DrivingController):
         print(set_steering)
         # if sensing_info.track_forward_angles[target] > 30:
         #     set_steering = math.radians(math.degrees(delta) - sensing_info.moving_angle)
-        set_steering = delta
+        set_steering = (math.degrees(delta) - sensing_info.moving_angle) / max(85, sensing_info.speed * 0.95)
+        set_steering = math.radians(math.degrees(delta) - sensing_info.moving_angle)
         print(set_steering)
 
         # except:
