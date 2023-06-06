@@ -174,7 +174,7 @@ class DrivingClient(DrivingController):
             #     set_throttle = -1
             # 일반적인 경우
             # else:
-            set_steering = 0
+            set_steering = 0.05
             set_throttle = -1
             set_brake = 0
             self.recovery_count += 1
@@ -200,7 +200,6 @@ class DrivingClient(DrivingController):
         if sensing_info.moving_forward:
             self.reverse_drive = 0
             self.reverse_steer = 0
-
 
         # 역주행
         if self.reverse_drive > 5:

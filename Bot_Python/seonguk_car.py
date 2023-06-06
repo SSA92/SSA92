@@ -102,25 +102,25 @@ class DrivingClient(DrivingController):
         car_to_point_angle = 180 - C - A
         Angle_list = [car_to_point_angle]
 
-        X = -math.cos(math.radians(sum(Angle_list))) * sensing_info.distance_to_way_points[0]
-        Y = math.sin(math.radians(sum(Angle_list))) * sensing_info.distance_to_way_points[0]
+        X = -math.cos(math.radians(Angle_list[0])) * sensing_info.distance_to_way_points[0]
+        Y = math.sin(math.radians(Angle_list[0])) * sensing_info.distance_to_way_points[0]
 
         X_list = [X]
         Y_list = [Y]
 
         for i in range(19):
-            C = 180 - (sensing_info.track_forward_angles[i]) - A
-            temp = sensing_info.track_forward_angles[i] * math.sin(math.radians(C)) / sensing_info.distance_to_way_points[i + 1]
+            C = 180 - (sensing_info.track_forward_angles[i + 1] - sensing_info.track_forward_angles[i]) - A
+            temp = sensing_info.distance_to_way_points[i] * math.sin(math.radians(C)) / sensing_info.distance_to_way_points[i + 1]
             
             temp = min(max(temp, -1), 1)
 
             A = math.degrees(math.asin(temp))
             car_to_point_angle = 180 - C - A
 
-            Angle_list.append(car_to_point_angle + Angle_list[i - 1])
+            Angle_list.append(car_to_point_angle + Angle_list[i])
 
-            X = -math.cos(math.radians(Angle_list[i])) * sensing_info.distance_to_way_points[i + 1]
-            Y = math.sin(math.radians(Angle_list[i])) * sensing_info.distance_to_way_points[i + 1]
+            X = -math.cos(math.radians(Angle_list[i + 1])) * sensing_info.distance_to_way_points[i + 1]
+            Y = math.sin(math.radians(Angle_list[i + 1])) * sensing_info.distance_to_way_points[i + 1]
 
             X_list.append(X)
             Y_list.append(Y)
@@ -140,6 +140,8 @@ class DrivingClient(DrivingController):
         print('사이각도 : ', sensing_info.track_forward_angles[target])
         print('직선거리 : ', sensing_info.distance_to_way_points[target])
 
+        plt.plot(X_list, Y_list, '-', marker='o')
+        plt.show(block=False)
 
         # 왜 안되지
         # https://iridescentboy.tistory.com/6
@@ -156,6 +158,7 @@ class DrivingClient(DrivingController):
         #     set_steering = math.radians(math.degrees(delta) - sensing_info.moving_angle)
         set_steering = (math.degrees(delta) - sensing_info.moving_angle) / max(85, sensing_info.speed * 0.95)
         set_steering = math.radians(math.degrees(delta) - sensing_info.moving_angle)
+        set_steering = 0
         print(set_steering)
 
         # except:

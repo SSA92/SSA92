@@ -102,16 +102,20 @@ class DrivingClient(DrivingController):
         if full_throttle == False:
             # print(sensing_info.moving_angle)
             set_brake = min(0.35 + map_value(abs(sensing_info.moving_angle),0,50,0,1),1)
-            # print(set_brake)
-            # if sensing_info.speed > 100:
-            #     set_brake = 0.3
-            # if sensing_info.speed > 120:
-            #     set_throttle = 0.9
-            #     set_brake = 0.4
-            # if sensing_info.speed > 130:
-            #     set_throttle = 0.8
-            #     set_brake = 0.5
-
+            print(set_brake)
+            if sensing_info.speed > 100:
+                set_brake = 0.3
+            if sensing_info.speed > 120:
+                set_throttle = 0.7
+                set_brake = 0.4
+            if sensing_info.speed > 130:
+                set_throttle = 0.5
+                set_brake = 0.7
+        if emergency_brake:
+            if set_steering > 0:
+                set_steering += 0.3
+            else:
+                set_steering -= 0.3
         ################################################################################################################
 
         # Moving straight forward
