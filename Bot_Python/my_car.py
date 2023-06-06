@@ -23,6 +23,8 @@ class DrivingClient(DrivingController):
         self.is_accident = False
         self.recovery_count = 0
         self.accident_count = 0
+        self.reverse_drive = 0
+        self.reverse_steer = 0
         
         ## 도로 정보
         Road = []
