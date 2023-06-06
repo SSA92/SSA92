@@ -131,7 +131,7 @@ class DrivingClient(DrivingController):
         road_range = int(sensing_info.speed / 20)
         for i in range(0, road_range):
             fwd_angle = abs(sensing_info.track_forward_angles[i])
-            if fwd_angle > 45:  ## 커브가 45도 이상인 경우 brake, throttle 을 제어
+            if fwd_angle > 52:  ## 커브가 45도 이상인 경우 brake, throttle 을 제어
                 full_throttle = False
             if fwd_angle > 80:  ## 커브가 80도 이상인 경우 steering 까지 추가로 제어
                 emergency_brake = True
@@ -140,10 +140,11 @@ class DrivingClient(DrivingController):
         ## brake, throttle 제어
         
         
-        # if full_throttle == False:
-        #     # print(sensing_info.moving_angle)
-        #     # set_brake = min(0.35 + map_value(abs(sensing_info.moving_angle),0,50,0,1),1)
-        #     # print(set_brake)
+        if full_throttle == False:
+            set_steering += 0.4
+            # print(sensing_info.moving_angle)
+            # set_brake = min(0.35 + map_value(abs(sensing_info.moving_angle),0,50,0,1),1)
+            # print(set_brake)
         # if sensing_info.speed > 90:
         #     set_brake = 0.3
         # if sensing_info.speed > 120:
@@ -210,7 +211,7 @@ def prepare_corner(road_data):
 def is_corner(fw_angles):
     theta1 = fw_angles[1]
     theta2 = fw_angles[2]
-    R = abs(10/(theta2-theta1+0.001))
+    R = abs(10/(2*(theta2-theta1)+0.001))
     
     print("곡률반경 R : ", R)
     return True if R <= 6 else False
