@@ -138,16 +138,28 @@ class DrivingClient(DrivingController):
     def set_player_name(self):
         player_name = ""
         return player_name
+grid_size = 0.1
+I_ax = 0
+prev_E_ax = 0
 
-def PI_controller(self):
-    I_ax = 0.1 # 신호가 0.1초마다 업데이트
-    E_ax = udp_input.DriveCont.Ax - car.ConBdy1.a_1[0]
-    I_ax_integral += I_ax * E_ax
+def PID_controller(_input, target, factor):
+    global I_ax, prev_E_ax
+    kP = 1.5
+    kI = 3
+    kD = 3
+    
+    dt = 0.1 # 신호가 0.1초마다 업데이트
+    
+    E_ax = _input + target*(factor + 0.001)
+    I_ax = dt * E_ax
+    dE_ax = (E_ax - prev_E_ax) / dt
 
     # Clamp I_ax_integral to be between -1.0 and 1.0
-    I_ax_integral = min(max(I_ax_integral, -1.0), 1.0)
+    I_ax = min(max(I_ax, -1.0), 1.0)
+    prev_E_ax = E_ax
 
-    Cont_ax = P_ax * E_ax + I_ax_integral
+    Cont_ax = kP * E_ax + kI * I_ax + kD * dE_ax
+    Cont_ax /= (factor + 0.001)
     return Cont_ax
 
 
