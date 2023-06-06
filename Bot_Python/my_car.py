@@ -23,6 +23,11 @@ class DrivingClient(DrivingController):
         self.is_accident = False
         self.recovery_count = 0
         self.accident_count = 0
+        
+        ## 도로 정보
+        Road = []
+        Left_line = []
+        Right_line = []
 
         ## 코너링 관련 파라미터
         self.prev_E_cornering = 0
@@ -261,13 +266,18 @@ class DrivingClient(DrivingController):
             track_forward_angles = [0,] + sensing_info.track_forward_angles
             distance_to_way_points = [sensing_info.to_middle,] + sensing_info.distance_to_way_points
             Angle_list = [0,]
+            
+            self.Road = []
             X_list = []
             Y_list = []
 
-            Left_road_X = []
-            Left_road_Y = []
+            self.Right_line = []
             Right_road_X = []
             Right_road_Y = []
+
+            self.Left_line = []
+            Left_road_X = []
+            Left_road_Y = []
 
             for i in range(20):
                 C = 180 - (track_forward_angles[i + 1] - track_forward_angles[i]) - A
@@ -287,11 +297,17 @@ class DrivingClient(DrivingController):
                 X_list.append(X)
                 Y_list.append(Y)
 
+                self.Road.append((X, Y))
+
                 Right_road_X.append(X + math.cos(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit)
                 Right_road_Y.append(Y - math.sin(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit)
 
+                self.Right_line.append((X + math.cos(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit, Y - math.sin(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit))
+
                 Left_road_X.append(X - math.cos(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit)
                 Left_road_Y.append(Y + math.sin(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit)
+
+                self.Left_line.append((X - math.cos(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit, Y + math.sin(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit))
 
 
             Angle_list = Angle_list[1:]
