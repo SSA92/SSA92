@@ -1,6 +1,8 @@
 from DrivingInterface.drive_controller import DrivingController
 
+import math
 from math import atan2, tan, pi, cos, sin, ceil, sqrt
+import matplotlib.pyplot as plt
 
 class DrivingClient(DrivingController):
     def __init__(self):
@@ -212,7 +214,11 @@ class DrivingClient(DrivingController):
             self.recovery_count += 1
 
         # 다시 진행
-        if self.recovery_count > 20:
+        if self.recovery_count > 7:
+            set_throttle = 1
+
+        # 다시 진행
+        if self.recovery_count > 13:
             print("다시시작")
             self.is_accident = False
             self.recovery_count = 0
@@ -245,9 +251,54 @@ class DrivingClient(DrivingController):
         # print("forward", sensing_info.moving_forward)
         print("accident_count", self.accident_count)
         print("recovery", self.recovery_count)
+        ################################################################################################################
+        
+        # 삼각 함수에 넣을때는 라디안으로
+        A = 90
+
+        track_forward_angles = [0,] + sensing_info.track_forward_angles
+        distance_to_way_points = [sensing_info.to_middle,] + sensing_info.distance_to_way_points
+        Angle_list = [0,]
+        X_list = []
+        Y_list = []
+
+
+        for i in range(20):
+            C = 180 - (track_forward_angles[i + 1] - track_forward_angles[i]) - A
+
+            temp = distance_to_way_points[i] * math.sin(math.radians(C)) / distance_to_way_points[i + 1]
+            
+            temp = min(max(temp, -1), 1)
+            A = math.degrees(math.asin(temp))
+
+            car_to_point_angle = 180 - C - A
+
+            Angle_list.append(car_to_point_angle + Angle_list[i])
+
+            X = -math.cos(math.radians(Angle_list[i + 1])) * distance_to_way_points[i + 1]
+            Y = math.sin(math.radians(Angle_list[i + 1])) * distance_to_way_points[i + 1]
+
+            X_list.append(X)
+            Y_list.append(Y)
+
+        Angle_list = Angle_list[1:]
+
+        def round3(n):
+            return round(n,3)
+
+        if self.is_debug:
+            print()
+            print(len(Angle_list))
+            print('Angle_list : ', list(map(round3, Angle_list)))
+            print('X_list : ', list(map(round3, X_list)))
+            print('Y_list : ', list(map(round3, Y_list)))
+            
+        plt.cla()
+        plt.plot(X_list, Y_list, '-', marker='o')
+        plt.show(block=False)
+        plt.pause(0.1)
 
         ################################################################################################################
-
         # Moving straight forward
         # car_controls.steering = PI_controller(sensing_info.moving_angle, set_steering, steer_factor)
         car_controls.steering = set_steering
