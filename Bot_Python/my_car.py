@@ -2,7 +2,7 @@ from DrivingInterface.drive_controller import DrivingController
 
 import math
 from math import atan2, tan, pi, cos, sin, ceil, sqrt
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 class DrivingClient(DrivingController):
     def __init__(self):
@@ -133,9 +133,9 @@ class DrivingClient(DrivingController):
         middle_add = gen_ref_angle * ref_mid
         set_steering += middle_add
         
-        if sensing_info.speed > 100:
-            set_brake = 0.5
-            set_throttle = 0.7
+        # if sensing_info.speed > 100:
+        #     set_brake = 0.5
+        #     set_throttle = 0.7
         
 
         ## 긴급 및 예외 상황 처리 ########################################################################################
@@ -175,9 +175,9 @@ class DrivingClient(DrivingController):
         #     set_brake = 0.7
         #     set_throttle = -0.5
 
-        if sensing_info.speed > 120:
-            set_brake = 0.5
-            set_throttle = 0.7
+        # if sensing_info.speed > 120:
+        #     set_brake = 0.5
+        #     set_throttle = 0.7
 
         # 충돌확인
         if sensing_info.lap_progress > 0.5 and -1 < sensing_info.speed < 1 and not self.is_accident:
@@ -185,15 +185,15 @@ class DrivingClient(DrivingController):
 
         # 충돌인지
         if self.accident_count > 7:
-            print("사고발생")
+            # print("사고발생")
             self.is_accident = True
 
         # 후진
         if self.is_accident:
-            print("후진")
+            # print("후진")
             # 잔디에 거꾸로 박혔을 때
             # (to_middle로 판별)
-            print("미들", sensing_info.to_middle)
+            # print("미들", sensing_info.to_middle)
             # if sensing_info.to_middle <= -10:
             #     set_steering = -0.7
             #     set_throttle = -1
@@ -208,7 +208,7 @@ class DrivingClient(DrivingController):
             #     set_throttle = -1
             # 일반적인 경우
             # else:
-            set_steering = 0
+            set_steering = 0.05
             set_throttle = -1
             set_brake = 0
             self.recovery_count += 1
@@ -219,7 +219,7 @@ class DrivingClient(DrivingController):
 
         # 다시 진행
         if self.recovery_count > 13:
-            print("다시시작")
+            # print("다시시작")
             self.is_accident = False
             self.recovery_count = 0
             self.accident_count = 0
@@ -227,7 +227,7 @@ class DrivingClient(DrivingController):
             set_throttle = 1
 
         if not sensing_info.moving_forward and not self.is_accident and (self.accident_count + self.recovery_count) < 3 and sensing_info.speed > 0:
-            print("역주행", self.reverse_drive)
+            # print("역주행", self.reverse_drive)
             self.reverse_drive += 1
             if not self.reverse_steer:
                 if sensing_info.to_middle < 0:
@@ -242,61 +242,62 @@ class DrivingClient(DrivingController):
 
         # 역주행
         if self.reverse_drive > 5:
-            print("역주행 수정")
+            # print("역주행 수정")
             set_steering = self.reverse_steer
             set_throttle = 0.5
 
 
-        print("주행상ㅌ", sensing_info.moving_forward)
-        # print("forward", sensing_info.moving_forward)
-        print("accident_count", self.accident_count)
-        print("recovery", self.recovery_count)
+        # print("주행상ㅌ", sensing_info.moving_forward)
+        # # print("forward", sensing_info.moving_forward)
+        # print("accident_count", self.accident_count)
+        # print("recovery", self.recovery_count)
         ################################################################################################################
         
-        # 삼각 함수에 넣을때는 라디안으로
-        A = 90
+        def plot():
+            # 삼각 함수에 넣을때는 라디안으로
+            A = 90
 
-        track_forward_angles = [0,] + sensing_info.track_forward_angles
-        distance_to_way_points = [sensing_info.to_middle,] + sensing_info.distance_to_way_points
-        Angle_list = [0,]
-        X_list = []
-        Y_list = []
+            track_forward_angles = [0,] + sensing_info.track_forward_angles
+            distance_to_way_points = [sensing_info.to_middle,] + sensing_info.distance_to_way_points
+            Angle_list = [0,]
+            X_list = []
+            Y_list = []
 
 
-        for i in range(20):
-            C = 180 - (track_forward_angles[i + 1] - track_forward_angles[i]) - A
+            for i in range(20):
+                C = 180 - (track_forward_angles[i + 1] - track_forward_angles[i]) - A
 
-            temp = distance_to_way_points[i] * math.sin(math.radians(C)) / distance_to_way_points[i + 1]
-            
-            temp = min(max(temp, -1), 1)
-            A = math.degrees(math.asin(temp))
+                temp = distance_to_way_points[i] * math.sin(math.radians(C)) / distance_to_way_points[i + 1]
+                
+                temp = min(max(temp, -1), 1)
+                A = math.degrees(math.asin(temp))
 
-            car_to_point_angle = 180 - C - A
+                car_to_point_angle = 180 - C - A
 
-            Angle_list.append(car_to_point_angle + Angle_list[i])
+                Angle_list.append(car_to_point_angle + Angle_list[i])
 
-            X = -math.cos(math.radians(Angle_list[i + 1])) * distance_to_way_points[i + 1]
-            Y = math.sin(math.radians(Angle_list[i + 1])) * distance_to_way_points[i + 1]
+                X = -math.cos(math.radians(Angle_list[i + 1])) * distance_to_way_points[i + 1]
+                Y = math.sin(math.radians(Angle_list[i + 1])) * distance_to_way_points[i + 1]
 
-            X_list.append(X)
-            Y_list.append(Y)
+                X_list.append(X)
+                Y_list.append(Y)
 
-        Angle_list = Angle_list[1:]
+            Angle_list = Angle_list[1:]
 
-        def round3(n):
-            return round(n,3)
+            def round3(n):
+                return round(n,3)
 
-        if self.is_debug:
-            print()
-            print(len(Angle_list))
-            print('Angle_list : ', list(map(round3, Angle_list)))
-            print('X_list : ', list(map(round3, X_list)))
-            print('Y_list : ', list(map(round3, Y_list)))
-            
-        plt.cla()
-        plt.plot(X_list, Y_list, '-', marker='o')
-        plt.show(block=False)
-        plt.pause(0.1)
+            if self.is_debug:
+                print()
+                print(len(Angle_list))
+                print('Angle_list : ', list(map(round3, Angle_list)))
+                print('X_list : ', list(map(round3, X_list)))
+                print('Y_list : ', list(map(round3, Y_list)))
+                
+            plt.cla()
+            plt.plot(X_list, Y_list, '-', marker='o')
+            plt.show(block=False)
+            plt.pause(0.1)
 
         ################################################################################################################
         # Moving straight forward
@@ -529,7 +530,7 @@ def generate_path(car_speed, car_pos, half_road_width, recommended_path, obstacl
 
 def _map2pos(recommended_path, car_pos, grid_size, half_road_width):
     target_pos = ((recommended_path+1 ) * grid_size - half_road_width) # (idx +1) * 그리드 - width = to_middle inform
-    return target_pos + 0.15 if car_pos <= target_pos else target_pos - 0.15 # 여유값 제공
+    return target_pos + 0.1 if car_pos <= target_pos else target_pos - 0.1 # 여유값 제공
 
 def _required_angle(proximate_dist, car_pos, target_pos):
     target_angle = (atan2(proximate_dist, (car_pos - target_pos)) * (180/pi) - 90 )
