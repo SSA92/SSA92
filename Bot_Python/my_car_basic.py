@@ -215,7 +215,7 @@ def prepare_corner(road_data):
 def is_corner(fw_angles):
     theta1 = fw_angles[1]
     theta2 = fw_angles[2]
-    R = abs(10/(theta2-theta1+0.001))
+    R = abs(10/(2*(theta2-theta1)+0.001))
     
     # print("곡률반경 R : ", R)
     return True if R <= 6 else False
