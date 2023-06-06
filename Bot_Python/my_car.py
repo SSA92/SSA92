@@ -2,7 +2,7 @@ from DrivingInterface.drive_controller import DrivingController
 
 import math
 from math import atan2, tan, pi, cos, sin, ceil, sqrt
-# import matplotlib.pyplot as plt
+
 
 class DrivingClient(DrivingController):
     def __init__(self):
@@ -12,7 +12,7 @@ class DrivingClient(DrivingController):
         # Editing area starts from here
         #
 
-        self.is_debug = False
+        self.is_debug = True
 
         # api or keyboard
         self.enable_api_control = True  # True(Controlled by code) /False(Controlled by keyboard)
@@ -254,6 +254,7 @@ class DrivingClient(DrivingController):
         ################################################################################################################
         
         def plot():
+            import matplotlib.pyplot as plt
             # 삼각 함수에 넣을때는 라디안으로
             A = 90
 
@@ -263,6 +264,10 @@ class DrivingClient(DrivingController):
             X_list = []
             Y_list = []
 
+            Left_road_X = []
+            Left_road_Y = []
+            Right_road_X = []
+            Right_road_Y = []
 
             for i in range(20):
                 C = 180 - (track_forward_angles[i + 1] - track_forward_angles[i]) - A
@@ -282,6 +287,13 @@ class DrivingClient(DrivingController):
                 X_list.append(X)
                 Y_list.append(Y)
 
+                Right_road_X.append(X + math.cos(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit)
+                Right_road_Y.append(Y - math.sin(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit)
+
+                Left_road_X.append(X - math.cos(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit)
+                Left_road_Y.append(Y + math.sin(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit)
+
+
             Angle_list = Angle_list[1:]
 
             def round3(n):
@@ -295,9 +307,14 @@ class DrivingClient(DrivingController):
                 print('Y_list : ', list(map(round3, Y_list)))
                 
             plt.cla()
-            plt.plot(X_list, Y_list, '-', marker='o')
+            plt.plot(X_list, Y_list, 'b-', marker='o')
+            plt.plot(Left_road_X, Left_road_Y, 'r-', marker='o')
+            plt.plot(Right_road_X, Right_road_Y, 'r-', marker='o')
             plt.show(block=False)
             plt.pause(0.1)
+
+        plot()
+
 
         ################################################################################################################
         # Moving straight forward
@@ -497,8 +514,8 @@ def path_planning(car_speed, car_yaw, car_pos, forward_map, half_road_width, obs
 
         if car_position > half_road_width : # 차량이 우측에 위치할 경우
             target_point = min(target_way_points) # 좌측 경로로 주행
-        print(forward_map)
-        print(target_path)
+        # print(forward_map)
+        # print(target_path)
         return target_point
     else:
         # print("트랙을 벗어났습니다.")
