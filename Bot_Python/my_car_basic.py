@@ -83,7 +83,7 @@ class DrivingClient(DrivingController):
                 # set_throttle = 0.9
 
                 
-            ref_mid = (sensing_info.to_middle / sensing_info.speed*1.2) * -1
+            ref_mid = (sensing_info.to_middle / (sensing_info.speed*1.2)) *-1
             # if is_corner(sensing_info.track_forward_angles):
             ready = move_to_in(sensing_info.speed, reli_routeInform, sensing_info.moving_angle, sensing_info.to_middle, half_load_width, self.I_cornering, self.prev_E_cornering)
             ref_angle -= ready
@@ -96,11 +96,11 @@ class DrivingClient(DrivingController):
             # if not is_corner(sensing_info.track_forward_angles):
             #     ref_mid = (sensing_info.to_middle / 360) * -1
         else:
-            print("코너가 아닙니다.")
+            # print("코너가 아닙니다.")
             self.I_cornering = 0
             self.prev_E_cornering = 0
             ## 차량의 차선 중앙 정렬을 위한 미세 조정 값 계산
-            ref_mid = (sensing_info.to_middle / 80) * -1
+            ref_mid = (sensing_info.to_middle / (sensing_info.speed)) * -1.2
 
 
 
@@ -141,7 +141,11 @@ class DrivingClient(DrivingController):
         
         
         if full_throttle == False:
-            set_steering += 0.4
+            set_steering += 0.25
+            # set_brake = 0.01
+            # set_steering += 0.3
+            # set_brake = 0.15
+            # set_throttle = 0.9
             # print(sensing_info.moving_angle)
             # set_brake = min(0.35 + map_value(abs(sensing_info.moving_angle),0,50,0,1),1)
             # print(set_brake)
@@ -189,7 +193,7 @@ prev_E_ax = 0
 
 
 def route_info(fw_angles):
-    sightsee = fw_angles[:11]
+    sightsee = fw_angles
     rel_YLength = 0
     rel_XLength = 0
     for fw_angle in sightsee:
@@ -204,7 +208,7 @@ def prepare_corner(road_data):
     x, y = road_data
     # if y > 12 and x < 15 : _is_corner = True
     # elif x >= 15 : _is_corner = False
-    if abs(y) > 3  : _is_corner = True
+    if abs(y) > 10  : _is_corner = True
     else : _is_corner = False
     return _is_corner
 
@@ -213,7 +217,7 @@ def is_corner(fw_angles):
     theta2 = fw_angles[2]
     R = abs(10/(2*(theta2-theta1)+0.001))
     
-    print("곡률반경 R : ", R)
+    # print("곡률반경 R : ", R)
     return True if R <= 6 else False
 
 def move_to_out(car_speed, road_data, car_yaw, car_pos, half_road_width, i_cornering, prev_e_cornering):
@@ -229,6 +233,7 @@ def move_to_out(car_speed, road_data, car_yaw, car_pos, half_road_width, i_corne
     
     target_angle = _required_angle(proximate_dist+x, car_pos, next_pos)
     next_angle = PID_controller(car_yaw, target_angle , i_cornering, prev_e_cornering, factor=1, kP=1, kI=1, kD=0)
+    
     return next_angle
 
 def move_to_in(car_speed, road_data, car_yaw, car_pos, half_road_width, i_cornering, prev_e_cornering):
@@ -241,10 +246,11 @@ def move_to_in(car_speed, road_data, car_yaw, car_pos, half_road_width, i_corner
     proximate_dist = ((car_speed /3.6)+ 4.001)
     # print(f"{proximate_dist}m/s")
     target_pos = out_is * (half_road_width-1.2)
-    next_pos = PID_controller(car_pos, target_pos , i_cornering, prev_e_cornering, factor=1, kP=P, kI=I, kD=0.001)
+    next_pos = PID_controller(car_pos, target_pos , i_cornering, prev_e_cornering, factor=1, kP=P, kI=I, kD=0.01)
     
-    target_angle = _required_angle(200, car_pos, next_pos)
-    next_angle = PID_controller(car_yaw, target_angle , i_cornering, prev_e_cornering, factor=1, kP=P, kI=1, kD=0)
+    target_angle = _required_angle(125, car_pos, next_pos)
+    next_angle = PID_controller(car_yaw, target_angle , i_cornering, prev_e_cornering, factor=1, kP=1, kI=1, kD=0.01)
+    next_angle +=( atan2(y,x)* (180/pi) - 90) / 40
     return next_angle
 
 def _required_angle(proximate_dist, car_pos, target_pos):
