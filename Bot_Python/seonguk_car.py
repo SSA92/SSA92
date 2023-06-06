@@ -1,5 +1,6 @@
 from DrivingInterface.drive_controller import DrivingController
 import math
+import matplotlib.pyplot as plt
 
 class DrivingClient(DrivingController):
     def __init__(self):
@@ -92,71 +93,136 @@ class DrivingClient(DrivingController):
         # try:
         L = 4.6 # 차 길이 (m)
         # 삼각 함수에 넣을때는 라디안으로
+        A = 90
 
-        C = 90 - sensing_info.track_forward_angles[0]
-        temp = sensing_info.to_middle * math.sin(math.radians(C)) / sensing_info.distance_to_way_points[0]
+        track_forward_angles = [0,] + sensing_info.track_forward_angles
+        distance_to_way_points = [sensing_info.to_middle,] + sensing_info.distance_to_way_points
+        Angle_list = [0,]
+        X_list = []
+        Y_list = []
+
+        # C = 180 - sensing_info.track_forward_angles[0] - A
+        # temp = sensing_info.to_middle * math.sin(math.radians(C)) / sensing_info.distance_to_way_points[0]
         
-        temp = min(max(temp, -1), 1)
+        # temp = min(max(temp, -1), 1)
 
-        A = math.degrees(math.asin(temp))
-        car_to_point_angle = 180 - C - A
-        Angle_list = [car_to_point_angle]
+        # A = math.degrees(math.asin(temp))
+        # car_to_point_angle = 180 - C - A
+        # Angle_list = [car_to_point_angle]
 
-        X = -math.cos(math.radians(sum(Angle_list))) * sensing_info.distance_to_way_points[0]
-        Y = math.sin(math.radians(sum(Angle_list))) * sensing_info.distance_to_way_points[0]
+        # X = -math.cos(math.radians(Angle_list[0])) * sensing_info.distance_to_way_points[0]
+        # Y = math.sin(math.radians(Angle_list[0])) * sensing_info.distance_to_way_points[0]
 
-        X_list = [X]
-        Y_list = [Y]
+        # X_list = [X]
+        # Y_list = [Y]
 
-        for i in range(19):
-            C = 180 - (sensing_info.track_forward_angles[i]) - A
-            temp = sensing_info.track_forward_angles[i] * math.sin(math.radians(C)) / sensing_info.distance_to_way_points[i + 1]
+        for i in range(20):
+            break
+
+            C = 180 - (sensing_info.track_forward_angles[i + 1] - sensing_info.track_forward_angles[i]) - A
+
+            temp = sensing_info.distance_to_way_points[i] * math.sin(math.radians(C)) / sensing_info.distance_to_way_points[i + 1]
             
             temp = min(max(temp, -1), 1)
-
             A = math.degrees(math.asin(temp))
+
             car_to_point_angle = 180 - C - A
 
-            Angle_list.append(car_to_point_angle + Angle_list[i - 1])
+            Angle_list.append(car_to_point_angle + Angle_list[i])
 
-            X = -math.cos(math.radians(Angle_list[i])) * sensing_info.distance_to_way_points[i + 1]
-            Y = math.sin(math.radians(Angle_list[i])) * sensing_info.distance_to_way_points[i + 1]
+            X = -math.cos(math.radians(Angle_list[i + 1])) * sensing_info.distance_to_way_points[i + 1]
+            Y = math.sin(math.radians(Angle_list[i + 1])) * sensing_info.distance_to_way_points[i + 1]
 
             X_list.append(X)
             Y_list.append(Y)
 
-            # print(car_to_point_angle)
-            # print('X, Y : ', X, Y)
+        for i in range(20):
+            C = 180 - (track_forward_angles[i + 1] - track_forward_angles[i]) - A
+
+            temp = distance_to_way_points[i] * math.sin(math.radians(C)) / distance_to_way_points[i + 1]
+            
+            temp = min(max(temp, -1), 1)
+            A = math.degrees(math.asin(temp))
+
+            car_to_point_angle = 180 - C - A
+
+            Angle_list.append(car_to_point_angle + Angle_list[i])
+
+            X = -math.cos(math.radians(Angle_list[i + 1])) * distance_to_way_points[i + 1]
+            Y = math.sin(math.radians(Angle_list[i + 1])) * distance_to_way_points[i + 1]
+
+            X_list.append(X)
+            Y_list.append(Y)
+
+        Angle_list = Angle_list[1:]
 
         def round3(n):
             return round(n,3)
 
-        target = max(int(sensing_info.speed / 20), 5)
-        
-        print('Angle_list : ', list(map(round3, Angle_list)))
-        print('X_list : ', list(map(round3, X_list)))
-        print('Y_list : ', list(map(round3, Y_list)))
-        print('target X : ', X_list[target], ', target Y : ', Y_list[target])
-        print('사이각도 : ', sensing_info.track_forward_angles[target])
-        print('직선거리 : ', sensing_info.distance_to_way_points[target])
-
-
+        if self.is_debug:
+            print()
+            print(len(Angle_list))
+            print('Angle_list : ', list(map(round3, Angle_list)))
+            print('X_list : ', list(map(round3, X_list)))
+            print('Y_list : ', list(map(round3, Y_list)))
+            
+        plt.cla()
+        plt.plot(X_list, Y_list, '-', marker='o')
+        plt.show(block=False)
+        plt.pause(0.1)
         # 왜 안되지
         # https://iridescentboy.tistory.com/6
-        delta = math.atan(2 * X_list[target] * L / (sensing_info.distance_to_way_points[target] ** 2))
-        print('delta : ', delta, '(rad)')
-        print('delta : ', math.degrees(delta) - sensing_info.moving_angle, '(deg)')
+        target = max(int(sensing_info.speed / 20), 5)
+        delta = math.atan2(2 * X_list[target] * L , (sensing_info.distance_to_way_points[target] ** 2))
 
-        # a = math.asin(sensing_info.distance_to_way_points[0] / (2 * max(X, Y))) * 2
-        # b = a * sensing_info.speed * 0.1 / max(X, Y)
-        # b = b if math.atan(Y / X) * 180 / math.pi - sensing_info.moving_angle >= 0 else - b
+        if self.is_debug:
+            print('target : ', target)
+            print('target X : ', X_list[target], ', target Y : ', Y_list[target], ', to middle : ', sensing_info.to_middle)
 
-        print(set_steering)
-        # if sensing_info.track_forward_angles[target] > 30:
-        #     set_steering = math.radians(math.degrees(delta) - sensing_info.moving_angle)
-        set_steering = (math.degrees(delta) - sensing_info.moving_angle) / max(85, sensing_info.speed * 0.95)
-        set_steering = math.radians(math.degrees(delta) - sensing_info.moving_angle)
-        print(set_steering)
+            print('사이각도 : ', Angle_list[target])
+
+            print('사이 거리 1 : ', math.sqrt(X_list[target] ** 2 + Y_list[target] ** 2))
+
+            print('직선거리 : ', sensing_info.distance_to_way_points[target])
+
+            # print('delta : ', delta, '(rad)')
+            # print('delta : ', math.degrees(delta), '(°)')
+            # print('delta - car_angle : ', math.degrees(delta) - sensing_info.moving_angle, '(°)')
+
+        # if not math.isnan(X_list[0]):
+        #     world_map = [[' ' for _ in range(int(max(X_list)) - int(min(X_list)) + 5)] for _ in range(int(max(Y_list) - min(Y_list)) + 5)]
+        #     world_map[0][5] = '@'
+        #     for i in range(20):
+        #         world_map[int(Y_list[i]) - int(min(Y_list))][int(X_list[i]) - int(min(X_list))] = '*'
+            
+        #     for i in range(len(world_map)):
+        #         print('[',*world_map[len(world_map) - i - 1],']', sep='')
+            
+        #     for i in range(100):
+        #         print()
+
+
+        if self.is_debug:
+            print('전 핸들 값 : ', set_steering)
+
+
+        if abs(Angle_list[target] - 90) > 100: # Pure Pursuit 기법
+            val = 50
+            print('각이 크다')
+            set_steering = math.degrees(delta) - sensing_info.moving_angle
+            set_steering = self.map_value(set_steering, -val, val, -1, 1)
+        else:
+            val = 85
+            set_steering = math.degrees(math.atan2(X_list[target], Y_list[target]))
+            print(set_steering)
+            set_steering = Angle_list[target] - 90
+            print(set_steering)
+            set_steering -= sensing_info.moving_angle
+            set_steering = self.map_value(set_steering, -val, val, -1, 1)
+
+
+        if self.is_debug:
+            print('후 핸들 값 : ', set_steering)
 
         # except:
         #     pass
