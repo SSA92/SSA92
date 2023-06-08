@@ -186,9 +186,15 @@ class DrivingClient(DrivingController):
             set_brake = 0.5
             set_throttle = 0.7
 
+
         # 충돌확인
+        target_dis = 10
         if sensing_info.lap_progress > 0.5 and -1 < sensing_info.speed < 1 and not self.is_accident:
             self.accident_count += 1
+            back_dis = sensing_info.to_middle
+            # 충돌 지점에 따라 후진 카운트 조절
+            if abs(back_dis) > 7:
+                target_dis = back_dis * 1.1
 
         # 충돌인지
         if self.accident_count > 7:
@@ -197,23 +203,6 @@ class DrivingClient(DrivingController):
 
         # 후진
         if self.is_accident:
-            # print("후진")
-            # 잔디에 거꾸로 박혔을 때
-            # (to_middle로 판별)
-            # print("미들", sensing_info.to_middle)
-            # if sensing_info.to_middle <= -10:
-            #     set_steering = -0.7
-            #     set_throttle = -1
-            # elif -10 < sensing_info.to_middle < 0:
-            #     set_steering = 0
-            #     set_throttle = -1
-            # elif sensing_info.to_middle >= 10:
-            #     set_throttle = -1
-            #     set_steering = 0.7
-            # elif 0 < sensing_info.to_middle < 10:
-            #     set_steering = -0
-            #     set_throttle = -1
-            
             # 복구 안되고 있을때 (== 후진해도 소용없을 때?)
             if self.stop_count > 30:
                 # 직진시도
@@ -234,12 +223,14 @@ class DrivingClient(DrivingController):
             # print("후진", self.stop_count)
 
         # 차량 안밀리게 어느정도 후진하면 가속으로 상쇄
-        if self.recovery_count > 7:
+        if self.recovery_count > 6:
             set_throttle = 1
 
         # 다시 진행
-        if self.recovery_count > 10:
+        # 도로 밖에서 후진해올때 도로 중앙근처로 오면 바로 다시시작
+        if self.recovery_count >= target_dis or (target_dis > 10 and abs(sensing_info.to_middle) < 3):
             # print("다시시작")
+            print("후진 길이", target_dis)
             self.is_accident = False
             self.recovery_count = 0
             self.accident_count = 0
@@ -247,10 +238,21 @@ class DrivingClient(DrivingController):
             # print("미들", sensing_info.to_middle)
             # print("방향", sensing_info.moving_forward)
             # 도로 밖에서 다시 시작하면 도로쪽으로 조향하면서 가속 (스피드맵 : 8 , 싸피맵 : 11)
+            angle = sensing_info.moving_angle
+            steer = angle * 0.012
+            print(steer, angle)
+            # 도로 오른쪽일 떄
             if sensing_info.to_middle > 8:
-                set_steering = -0.5
+                if angle < 0:
+                    set_steering = steer
+                else:
+                    set_steering = -steer
+            # 도로 왼쪽일 때
             elif sensing_info.to_middle < -8:
-                set_steering = 0.5
+                if angle < 0:
+                    set_steering = -steer
+                else:
+                    set_steering = steer
             else:
                 set_steering = 0
             
