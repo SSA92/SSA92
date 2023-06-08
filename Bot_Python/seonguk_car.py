@@ -63,6 +63,7 @@ class DrivingClient(DrivingController):
 
         ## 차량 핸들 조정을 위해 참고할 전방의 커브 값 가져오기 ( 전방 전체를 참고하면 좋을듯 )
         angle_num = int(sensing_info.speed / 40)
+        
         ref_angle = sensing_info.track_forward_angles[angle_num] if angle_num > 0 else 0
         
         ## 차량의 차선 중앙 정렬을 위한 미세 조정 값 계산
@@ -166,17 +167,20 @@ class DrivingClient(DrivingController):
             print('X_list : ', list(map(round3, X_list)))
             print('Y_list : ', list(map(round3, Y_list)))
             
-        plt.cla()
-        plt.plot(X_list, Y_list, '-', marker='o')
-        plt.show(block=False)
-        plt.pause(0.1)
-        # 왜 안되지
-        # https://iridescentboy.tistory.com/6
+        # plt.cla()
+        # plt.plot(X_list, Y_list, '-', marker='o')
+        # plt.show(block=False)
+        # plt.pause(0.05)
+        
         target = max(int(sensing_info.speed / 20), 5)
-        delta = math.atan2(2 * X_list[target] * L , (sensing_info.distance_to_way_points[target] ** 2))
+        alpha  = Angle_list[target] - 90
+        delta = math.atan2(2 * L * math.sin(math.radians(alpha)), (sensing_info.distance_to_way_points[target]))
 
         if self.is_debug:
             print('target : ', target)
+            print('alpha : ', alpha)
+            print('alpha_rad : ',math.radians(alpha))
+            print('delta : ', math.degrees(delta))
             print('target X : ', X_list[target], ', target Y : ', Y_list[target], ', to middle : ', sensing_info.to_middle)
 
             print('사이각도 : ', Angle_list[target])
@@ -206,20 +210,20 @@ class DrivingClient(DrivingController):
             print('전 핸들 값 : ', set_steering)
 
 
-        if abs(Angle_list[target] - 90) > 100: # Pure Pursuit 기법
-            val = 50
-            print('각이 크다')
-            set_steering = math.degrees(delta) - sensing_info.moving_angle
-            set_steering = self.map_value(set_steering, -val, val, -1, 1)
-        else:
-            val = 85
-            set_steering = math.degrees(math.atan2(X_list[target], Y_list[target]))
-            print(set_steering)
-            set_steering = Angle_list[target] - 90
-            print(set_steering)
-            set_steering -= sensing_info.moving_angle
-            set_steering = self.map_value(set_steering, -val, val, -1, 1)
-
+        # if abs(Angle_list[target] - 90) > 100: # Pure Pursuit 기법
+        #     val = 50
+        #     print('각이 크다')
+        #     set_steering = math.degrees(delta) - sensing_info.moving_angle
+        #     set_steering = self.map_value(set_steering, -val, val, -1, 1)
+        # else:
+        #     val = 85
+        #     set_steering = math.degrees(math.atan2(X_list[target], Y_list[target]))
+        #     print(set_steering)
+        #     set_steering = Angle_list[target] - 90
+        #     print(set_steering)
+        #     set_steering -= sensing_info.moving_angle
+        #     set_steering = self.map_value(set_steering, -val, val, -1, 1)
+        set_steering += delta
 
         if self.is_debug:
             print('후 핸들 값 : ', set_steering)

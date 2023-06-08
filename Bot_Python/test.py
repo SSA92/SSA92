@@ -119,11 +119,11 @@ class DrivingClient(DrivingController):
                 print('X_list : ', list(map(round3, X_list)))
                 print('Y_list : ', list(map(round3, Y_list)))
             
-            # import matplotlib.pyplot as plt
-            # plt.cla()
-            # plt.plot(X_list, Y_list, 'b-', marker='o')
-            # plt.plot(Left_road_X, Left_road_Y, 'r-', marker='o')
-            # plt.plot(Right_road_X, Right_road_Y, 'r-', marker='o')
+            import matplotlib.pyplot as plt
+            plt.cla()
+            plt.plot(X_list, Y_list, 'b-', marker='o')
+            plt.plot(Left_road_X, Left_road_Y, 'r-', marker='o')
+            plt.plot(Right_road_X, Right_road_Y, 'r-', marker='o')
             # plt.show(block=False)
             # plt.pause(0.1)
         
@@ -174,9 +174,9 @@ class DrivingClient(DrivingController):
                 pathX.append(max(min(xr + w[0]*(xl-xr), xr), xl))
                 pathY.append(max(min(yr + w[1]*(yl-yr), yr), yl))
             print("===================================================")
-            # plt.plot(pathX, pathY, 'k-', marker='o')
-            # plt.show(block=False)
-            # plt.pause(0.1)
+            plt.plot(pathX, pathY, 'k-', marker='o')
+            plt.show(block=False)
+            plt.pause(0.05)
             return pathX, pathY
         
         
@@ -246,42 +246,41 @@ class DrivingClient(DrivingController):
         ## 1. 도로의 형상 파악
         reli_routeInform = route_info(sensing_info.track_forward_angles)
         
-        ## 1.1 도로의 형상에 따른 수행 동작 결정
+        # ## 1.1 도로의 형상에 따른 수행 동작 결정
         if prepare_corner(reli_routeInform):
-            half_x, half_y = route_info(sensing_info.track_forward_angles[:11])
-            out_factor = map_value(abs(half_y), 9, 20, 0, half_load_width)
-            if half_y >= 0:
-                out_factor *= -1
-            else:
-                out_factor *= 1
+        #     # half_x, half_y = route_info(sensing_info.track_forward_angles[:11])
+        #     # out_factor = map_value(abs(half_y), 9, 20, 0, half_load_width)
+        #     # if half_y >= 0:
+        #     #     out_factor *= -1
+        #     # else:
+        #     #     out_factor *= 1
                 
-            # ready = move_to_in(sensing_info.speed, reli_routeInform, sensing_info.moving_angle, sensing_info.to_middle, half_load_width)
-            # # is_corner(sensing_info.track_forward_angles)
-            # plot()
-            # pathx, pathy = main_route_while_curve()
-            # x, y = reli_routeInform
-            # P = abs(map_value(x, 0, 20, 1.5, 1))
-            # I = abs(map_value(y, 0, 20, 1, 1.5))
-            # target_pos = pathx[0]
-            # print("목표",target_pos)
-            # print("현재",sensing_info.to_middle)
-            # next_pos = PID_controller(sensing_info.to_middle, target_pos , self.I_positioning, self.prev_E_positioning, factor=1, kP=P, kI=I, kD=0.0)
-            # print("0.1초 뒤",next_pos)
-            # proximate_dist = ((sensing_info.speed /3.6)+ 4.001)
-            # target_angle = _required_angle(proximate_dist, sensing_info.to_middle, next_pos)
-            # target_angle = (target_angle + sensing_info.track_forward_angles[0])/2
-            # next_angle = PID_controller(sensing_info.moving_angle, target_angle , self.I_cornering, self.prev_E_cornering, factor=1, kP=1, kI=1, kD=0)
-    
-            # set_steering = min(1, sensing_info.speed/10) *  (next_angle - sensing_info.moving_angle) / (steer_factor + 0.001)
-
+        #     # ready = move_to_in(sensing_info.speed, reli_routeInform, sensing_info.moving_angle, sensing_info.to_middle, half_load_width)
+        #     # # is_corner(sensing_info.track_forward_angles)
+            plot()
+            pathx, pathy = main_route_while_curve()
+            x, y = reli_routeInform
+            P = abs(map_value(x, 0, 20, 1.5, 1))
+            I = abs(map_value(y, 0, 20, 1, 1.5))
+            target_pos = sensing_info.to_middle + (0.2*pathx[angle_num] + 0.8 *pathx[0])/10
+            print("목표",target_pos)
+            print("현재",sensing_info.to_middle)
+            next_pos = PID_controller(sensing_info.to_middle, target_pos , self.I_positioning, self.prev_E_positioning, factor=1, kP=P, kI=I, kD=0.0)
+            print("0.1초 뒤",next_pos)
+            proximate_dist = ((sensing_info.speed /3.6)+ 4.001)
+            target_angle = _required_angle(proximate_dist, sensing_info.to_middle, next_pos)
+            target_angle = (target_angle + sensing_info.track_forward_angles[0])/2
+            next_angle = PID_controller(sensing_info.moving_angle, target_angle , self.I_cornering, self.prev_E_cornering, factor=1, kP=P, kI=I, kD=0)
+            print("0.1초 뒤 각",next_angle)
+        #     set_steering = min(1, sensing_info.speed/10) *  (next_angle - sensing_info.moving_angle) / (steer_factor + 0.001)
+            pass
         else:
             # print("코너가 아닙니다.")
             self.I_cornering = 0
             self.prev_E_cornering = 0
             ## 차량의 차선 중앙 정렬을 위한 미세 조정 값 계산
             next_pos = sensing_info.to_middle
-    
-        
+
         ## 2. 장애물에 따른 장애물 극복 로직
         gen_ref_angle = map_value(abs(ref_angle),0,50,0,1) + 0.55
         ref_mid = (sensing_info.to_middle /(sensing_info.speed+0.001)) * -1.2
@@ -324,7 +323,7 @@ class DrivingClient(DrivingController):
 
         ## brake, throttle 제어
 
-        set_brake = 0.0
+        
 
         # 충돌확인
         if sensing_info.lap_progress > 0.5 and -1 < sensing_info.speed < 1 and not self.is_accident:
@@ -604,7 +603,7 @@ def PID_controller(_input, target, I_ , prev_E_, factor ,kP, kI, kD):
     
     dt = 0.1 # 신호가 0.1초마다 업데이트
     
-    E_ax = _input + target*(factor + 0.001)
+    E_ax = target*(factor + 0.001) - _input
     I_ += dt * E_ax
     
     dE_ax = (E_ax - prev_E_) / dt
