@@ -12,7 +12,7 @@ class DrivingClient(DrivingController):
         # Editing area starts from here
         #
 
-        self.is_debug = True
+        self.is_debug = False
 
         # api or keyboard
         self.enable_api_control = True  # True(Controlled by code) /False(Controlled by keyboard)
@@ -23,8 +23,6 @@ class DrivingClient(DrivingController):
         self.is_accident = False
         self.recovery_count = 0
         self.accident_count = 0
-        self.reverse_drive = 0
-        self.reverse_steer = 0
         self.stop_count = 0
         
         ## 도로 정보
@@ -38,6 +36,7 @@ class DrivingClient(DrivingController):
 
         ## 역주행 관련 파라미터
         self.reverse_drive = 0
+        self.reverse_steer = 0
         #
         # Editing area ends
         # ==========================================================#
@@ -216,12 +215,15 @@ class DrivingClient(DrivingController):
             #     set_throttle = -1
             
             # 복구 안되고 있을때 (== 후진해도 소용없을 때?)
-            if self.stop_count > 45:
+            if self.stop_count > 30:
+                # 직진시도
                 set_throttle = 0.5
                 if sensing_info.to_middle < 0:
-                    set_steering = 0.5
+                    set_steering = -0.4
                 else:
-                    set_steering = -0.5
+                    set_steering = 0.4
+            # 박고 뒤 돌았을때 -> 역주행코드로 대체
+
             # 일반적인 경우
             else:
                 set_steering = 0.05
@@ -229,21 +231,30 @@ class DrivingClient(DrivingController):
                 set_brake = 0
             self.recovery_count += 1
             self.stop_count += 1
+            # print("후진", self.stop_count)
 
         # 차량 안밀리게 어느정도 후진하면 가속으로 상쇄
         if self.recovery_count > 7:
             set_throttle = 1
 
         # 다시 진행
-        if self.recovery_count > 14:
+        if self.recovery_count > 10:
             # print("다시시작")
             self.is_accident = False
             self.recovery_count = 0
             self.accident_count = 0
-            set_steering = 0
             set_throttle = 1
+            # print("미들", sensing_info.to_middle)
+            # print("방향", sensing_info.moving_forward)
+            # 도로 밖에서 다시 시작하면 도로쪽으로 조향하면서 가속 (스피드맵 : 8 , 싸피맵 : 11)
+            if sensing_info.to_middle > 8:
+                set_steering = -0.5
+            elif sensing_info.to_middle < -8:
+                set_steering = 0.5
+            else:
+                set_steering = 0
             
-        if sensing_info.speed > 50:
+        if sensing_info.speed > 40:
             self.stop_count = 0
             
             
