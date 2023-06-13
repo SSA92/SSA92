@@ -351,7 +351,7 @@ class DrivingClient(DrivingController):
         if sensing_info.lap_progress > 0.5 and -1 < sensing_info.speed < 1 and not self.is_accident:
             self.accident_count += 1
             back_dis = sensing_info.to_middle
-            # 충돌 지점에 따라 후진 카운트 조절
+            # 충돌 지점에 따라 후진 카운트 조절 (스피드맵 : 7 , 싸피맵 : 10)
             if abs(back_dis) > 7:
                 self.back_dis = abs(back_dis) * 1.2
 
