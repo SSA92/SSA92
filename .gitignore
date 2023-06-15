@@ -1,2 +1,4 @@
 .vscode
-__pycache__
+__pycache__/
+Bot_Python/DrivingInterface/__pycache__/
+Bot_Python/DrivingInterface/airsim/__pycache__/
