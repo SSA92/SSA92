@@ -354,7 +354,7 @@ class DrivingClient(DrivingController):
             back_dis = sensing_info.to_middle
             # 충돌 지점에 따라 후진 카운트 조절 (스피드맵 : 7 , 싸피맵 : 10)
             if abs(back_dis) > 10:
-                self.back_dis = abs(back_dis) * 1.37 # (스피드맵 : 1.37 , 싸피맵 : 2)
+                self.back_dis = abs(back_dis) * 1.37 # (스피드맵 : 1.37 , 싸피맵 : 1.85)
 
         # 충돌인지
         if self.accident_count > 7:
@@ -426,7 +426,9 @@ class DrivingClient(DrivingController):
                 set_steering = 0
             # 복구 안되고 있으면 방향 전환하면서 조향각 증가
             if self.stop_count > 40:
-                set_steering = self.steer_list[-1] * -1.5
+                steer = self.steer_list[-2] * -1.5
+                self.steer_list.append(steer)
+                set_steering = steer
                 print("조향반대", set_steering)
             
         if sensing_info.speed > 40:
