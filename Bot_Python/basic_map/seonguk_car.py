@@ -1,6 +1,6 @@
 from DrivingInterface.drive_controller import DrivingController
 import math
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 class DrivingClient(DrivingController):
     def __init__(self):
@@ -15,14 +15,20 @@ class DrivingClient(DrivingController):
         self.I_positioning = 0
 
         self.enter_corner = 0
+
+        self.is_last_corner = 0
         
         self.is_draw = False
 
+        ## 도로 정보
+        self.Road = []
+        self.Left_line = []
+        self.Right_line = []
         # =========================================================== #
         # Editing area starts from here
         #
 
-        self.is_debug = True
+        self.is_debug = False
 
         # api or keyboard
         self.enable_api_control = True  # True(Controlled by code) /False(Controlled by keyboard)
@@ -96,18 +102,7 @@ class DrivingClient(DrivingController):
                 self.enter_corner = 5
                 break
         
-        # if prepare_corner(reli_routeInform):
-
-        ref_mid = (sensing_info.to_middle / (sensing_info.speed*1.2)) *-1
-        # if is_corner(sensing_info.track_forward_angles):
-        if self.enter_corner > 0:
-            print('self.enter_corner : ' , self.enter_corner)
-            ready = move_to_in(sensing_info.speed, reli_routeInform, sensing_info.moving_angle, sensing_info.to_middle, half_load_width, self.I_cornering, self.prev_E_cornering)
-            self.enter_corner -= 1
-        else:
-            ready = move_to_out(sensing_info.speed, reli_routeInform, sensing_info.moving_angle, sensing_info.to_middle, half_load_width, self.I_cornering, self.prev_E_cornering)
-
-        ref_angle -= ready
+        # ref_angle -= ready
             
         # else:
         #     # print("코너가 아닙니다.")
@@ -128,26 +123,30 @@ class DrivingClient(DrivingController):
         set_steering = (ref_angle - sensing_info.moving_angle) / (steer_factor + 0.001)
 
         ## 차선 중앙정렬 값을 추가로 고려함
-        gen_ref_angle = map_value(abs(ref_angle),0,50,0,1) + 0.50
-        middle_add = gen_ref_angle * ref_mid
-        set_steering += middle_add
 
         ###########################################################################
-        ### Pure Pursuit
-        L = 4.6 # 차 길이 (m)
-        # 삼각 함수에 넣을때는 라디안으로
+        ### 도로 정보 좌표변환
         A = 90
-
         track_forward_angles = [0,] + sensing_info.track_forward_angles
         distance_to_way_points = [sensing_info.to_middle,] + sensing_info.distance_to_way_points
         Angle_list = [0,]
+        
+        self.Road = []
         X_list = []
         Y_list = []
+
+        self.Right_line = []
+        Right_road_X = []
+        Right_road_Y = []
+
+        self.Left_line = []
+        Left_road_X = []
+        Left_road_Y = []
 
         for i in range(20):
             C = 180 - (track_forward_angles[i + 1] - track_forward_angles[i]) - A
 
-            temp = distance_to_way_points[i] * math.sin(math.radians(C)) / distance_to_way_points[i + 1]
+            temp = distance_to_way_points[i] * math.sin(math.radians(C)) / max(0.001,distance_to_way_points[i + 1])
             
             temp = min(max(temp, -1), 1)
             A = math.degrees(math.asin(temp))
@@ -162,49 +161,111 @@ class DrivingClient(DrivingController):
             X_list.append(X)
             Y_list.append(Y)
 
+            self.Road.append((X, Y))
+
+            Right_road_X.append(X + math.cos(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit)
+            Right_road_Y.append(Y - math.sin(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit)
+
+            self.Right_line.append((X + math.cos(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit, Y - math.sin(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit))
+
+            Left_road_X.append(X - math.cos(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit)
+            Left_road_Y.append(Y + math.sin(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit)
+
+            self.Left_line.append((X - math.cos(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit, Y + math.sin(math.radians(sensing_info.track_forward_angles[i])) * self.half_road_limit))
+
         Angle_list = Angle_list[1:]
-
-        def round3(n):
-            return round(n,3)
-
-        if not self.is_debug:
-            print('Angle_list : ', map(lambda x : x - 90, list(map(round3, Angle_list))))
-            print('X_list : ', list(map(round3, X_list)))
-            print('Y_list : ', list(map(round3, Y_list)))
             
-        
+        ###########################################################################
+
+
+        L = 4.6 # 차 길이 (m)
         target = min(int(sensing_info.speed / 50) + 1, 3)
+
+        if sensing_info.speed < 120:
+            target = 6
+        elif sensing_info.speed < 140:
+            target = 7
+        else:
+            target = 8
+
+
         alpha  = Angle_list[target] - 90 - sensing_info.moving_angle
         delta = math.atan2(2 * L * math.sin(math.radians(alpha)), (sensing_info.distance_to_way_points[target])) 
 
-        if not self.is_debug:
+        target_list_X = []
+        target_list_Y = []
+        for i in range(19):
+            def get_R(target):
+                theta1 = Angle_list[target]
+                theta2 = Angle_list[target + 1]
+                R = abs(10/(2*(theta2-theta1)+0.001))
+                
+                # print("곡률반경 R : ", R)
+                return R
+            
+            R = min(get_R(i), 50)
+
+            go_to = 1 if Angle_list[i] > 90 else -1
+            length = map_value(R, 0, 50, 0.9, 0.001) * half_load_width
+            
+            target_X = (X_list[i] + go_to * math.cos(math.radians(sensing_info.track_forward_angles[i])) * length)
+            target_Y = (Y_list[i] - go_to * math.sin(math.radians(sensing_info.track_forward_angles[i])) * length)
+
+            target_list_X.append(target_X)
+            target_list_Y.append(target_Y)
+
+        # delta = self.PID_controller(math.radians(sensing_info.moving_angle), delta, self.cornering_param, factor=1, kP=1, kI=0, kD=0)
+        # set_steering = max(1, sensing_info.speed*0.02) * delta 
+        # set_steering = 1.2 * delta 
+
+        
+        # that_is_corner = False
+        # corner_range = int(sensing_info.speed / 20)
+        # for i in range(0, corner_range):
+        #     fwd_angle = abs(sensing_info.track_forward_angles[i])
+        #     if fwd_angle > 180: 
+        #         that_is_corner = True
+
+        # if that_is_corner:
+        #     target -= 3
+        #     alpha = math.degrees(math.atan2(target_list_X[target], target_list_Y[target])) - sensing_info.moving_angle
+        #     delta = math.atan2(2 * L * math.sin(math.radians(alpha)), math.sqrt(target_list_X[target]**2 + target_list_Y[target]**2)) 
+        #     set_steering = delta * sensing_info.speed * 0.010
+        # else:
+        set_steering = math.atan((X_list[target] - half_load_width * 0.625) / Y_list[target]) * 180 / math.pi - sensing_info.moving_angle 
+        set_steering /= map_value(sensing_info.speed, 0, 200, 160, (sensing_info.speed+0.001)//1.45)
+
+
+        if self.is_debug:
+            def round3(n):
+                return round(n,3)
+            
+            print('Angle_list : ', list(map(lambda x : round(x - 90, 3), Angle_list)))
+            print('X_list : ', list(map(round3, X_list)))
+            print('Y_list : ', list(map(round3, Y_list)))
+
+
             print('target : ', target)
             print('alpha : ', alpha)
             print('alpha_rad : ',math.radians(alpha))
             print('delta : ', math.degrees(delta))
             print('target X : ', X_list[target], ', target Y : ', Y_list[target], ', to middle : ', sensing_info.to_middle)
+            print('target X : ', target_list_X[target], ', target Y : ', target_list_Y[target])
 
-            print('사이각도 : ', Angle_list[target])
-
+            print('사이각도 : ', Angle_list[target] - 90)
             print('사이 거리 1 : ', math.sqrt(X_list[target] ** 2 + Y_list[target] ** 2))
-
             print('직선거리 : ', sensing_info.distance_to_way_points[target])
+            print('핸들 값 : ', set_steering)
 
-            print('전 핸들 값 : ', set_steering)
 
-        ### 제어기, 가중치 등 시도
-        # delta = self.PID_controller(math.radians(sensing_info.moving_angle), delta, self.cornering_param, factor=1, kP=1, kI=0, kD=0)
-        # set_steering = max(1, sensing_info.speed*0.02) * delta 
-        # set_steering = 1.2 * delta 
-
-        if not self.is_debug:
-            print('후 핸들 값 : ', delta)
-
-        if self.is_draw:
-            plt.cla()
-            plt.plot(X_list, Y_list, '-', marker='o')
-            plt.show(block=False)
-            plt.pause(0.05)
+        # if self.is_draw:
+        #     plt.plot(X_list, Y_list, 'b-', marker='o')
+        #     plt.plot(Left_road_X, Left_road_Y, 'r-', marker='o')
+        #     plt.plot(Right_road_X, Right_road_Y, 'r-', marker='o')
+        #     plt.plot(target_list_X, target_list_Y, 'g-', marker='x')
+        #     plt.show(block=False)
+        #     plt.pause(0.03)
+        #     plt.cla()
 
         ###########################################################################
 
@@ -214,13 +275,16 @@ class DrivingClient(DrivingController):
 
         ## 전방 커브의 각도가 큰 경우 속도를 제어함
         ## 차량 핸들 조정을 위해 참고하는 커브 보다 조금 더 멀리 참고하여 미리 속도를 줄임
-        road_range = int(sensing_info.speed / 20)
+        X = abs(max(map_value(sensing_info.speed,0,180,35,17.5), 17))
+        road_range = int(sensing_info.speed / X)
         max_angle = 0
         for i in range(0, road_range):
             fwd_angle = abs(sensing_info.track_forward_angles[i])
             max_angle = max(max_angle, fwd_angle)
-            if fwd_angle > 45:  ## 커브가 45도 이상인 경우 brake, throttle 을 제어
+            if fwd_angle > 48:  ## 커브가 45도 이상인 경우 brake, throttle 을 제어
                 full_throttle = False
+                self.is_last_corner = 3
+
             if fwd_angle > 80:  ## 커브가 80도 이상인 경우 steering 까지 추가로 제어
                 emergency_brake = True
 
@@ -231,9 +295,17 @@ class DrivingClient(DrivingController):
 
             target_speed = map_value(max_angle, 0, 90, 90, 50)
             set_brake = map_value(sensing_info.speed - target_speed, 0, 160, 0, 1)
+            
+        set_brake = 0.0
+
+        if self.is_last_corner > 0:
+            print(self.is_last_corner)
+            set_steering += 0.88 * self.is_last_corner / 3
+            # set_brake = 0.4
+            self.is_last_corner -= 1
 
         ################################################################################################################
-
+        set_steering += (sensing_info.to_middle/((sensing_info.speed+0.001)*20)) * -1
         # Moving straight forward
         car_controls.steering = set_steering
         car_controls.throttle = set_throttle
@@ -285,7 +357,7 @@ def is_corner(fw_angles):
     theta2 = fw_angles[2]
     R = abs(10/(2*(theta2-theta1)+0.001))
     
-    print("곡률반경 R : ", R)
+    # print("곡률반경 R : ", R)
     return True if R <= 4.9 else False
 
 # 정규화 함수
