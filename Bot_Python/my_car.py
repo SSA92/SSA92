@@ -23,6 +23,8 @@ class DrivingClient(DrivingController):
         self.is_accident = False
         self.recovery_count = 0
         self.accident_count = 0
+        self.reverse_drive = 0
+        self.reverse_steer = 0
         
         ## 도로 정보
         Road = []
@@ -161,6 +163,25 @@ class DrivingClient(DrivingController):
         ## brake, throttle 제어
 
         set_brake = 0.0
+<<<<<<< HEAD
+        if full_throttle == False:
+            # print(sensing_info.moving_angle)
+            set_brake = min(0.35 + map_value(abs(sensing_info.moving_angle),0,50,0,1),1)
+            print(set_brake)
+            if sensing_info.speed > 100:
+                set_brake = 0.3
+            if sensing_info.speed > 120:
+                set_throttle = 0.7
+                set_brake = 0.4
+            if sensing_info.speed > 130:
+                set_throttle = 0.5
+                set_brake = 0.7
+        if emergency_brake:
+            if set_steering > 0:
+                set_steering += 0.3
+            else:
+                set_steering -= 0.3
+=======
         # if full_throttle == False:
         #     # print(sensing_info.moving_angle)
         #     set_brake = min(0.35 + map_value(abs(sensing_info.moving_angle), 0, 50, 0, 1), 1)
@@ -332,6 +353,7 @@ class DrivingClient(DrivingController):
         plot()
 
 
+>>>>>>> 60ac8c5b0a2e3c4b020250b1d6aaa72a2cf32d04
         ################################################################################################################
         # Moving straight forward
         # car_controls.steering = PI_controller(sensing_info.moving_angle, set_steering, steer_factor)
