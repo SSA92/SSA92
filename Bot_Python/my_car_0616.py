@@ -300,11 +300,12 @@ class DrivingClient(DrivingController):
             # half_x, half_y = route_info(sensing_info.track_forward_angles[:11])
             # out_factor = map_value(abs(half_y), 9, 20, 0, half_load_width)
             # if half_y >= 0:
-            #     out_factor *= -1
+            #     out_factor *= -1 
             # else:
             #     out_factor *= 1
                 
             plot()
+            x = 1
             pathx, pathy = main_route_while_curve(e=0.1)
             x, y = reli_routeInform
             P = abs(map_value(x, 0, 20, 1.5, 1))
