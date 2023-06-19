@@ -70,7 +70,6 @@ class DrivingClient(DrivingController):
         ## 0. 기본값 세팅
         angle_num = int(sensing_info.speed / 45)
         ref_angle = sensing_info.track_forward_angles[angle_num] if angle_num > 0 else 0
-        ref_mid = (sensing_info.to_middle /(sensing_info.speed+0.001)) * -1.2
         ref_distance = sensing_info.distance_to_way_points[angle_num] if angle_num > 0 else 0
         
         
@@ -90,9 +89,6 @@ class DrivingClient(DrivingController):
         
         ## 0.4 main route로 가기위한 steering angle 설정
         set_steering = (ref_angle - sensing_info.moving_angle) / (steer_factor + 0.001)
-        gen_ref_angle = map_value(abs(ref_angle),0,50,0,1) + 0.55
-        middle_add = gen_ref_angle * ref_mid
-        set_steering += middle_add
         
         
         ## 1. 도로의 형상 파악
@@ -121,6 +117,8 @@ class DrivingClient(DrivingController):
     
         
         ## 2. 장애물에 따른 장애물 극복 로직
+        gen_ref_angle = map_value(abs(ref_angle),0,50,0,1) + 0.55
+        ref_mid = (sensing_info.to_middle /(sensing_info.speed+0.001)) * -1.2
         ### 2.1 장애물 파악
         objects = analyze_obstacles(sensing_info.speed, sensing_info.to_middle, sensing_info.track_forward_obstacles)
         ### 2.2 전방 파악
@@ -132,19 +130,14 @@ class DrivingClient(DrivingController):
         # print(avoidance_angle)
         ## 2.5 장애물 회피 각도 제공
         if avoidance_angle:
-            avoid_factor = abs(set_steering - avoidance_angle)+1
-            
-            
-            selcted_path = 1.25/avoid_factor * avoid_factor* min(1, sensing_info.speed/100) * ( map_value(abs(avoidance_angle),0,50,0,1) + 1.5) * (avoidance_angle) / (steer_factor + 0.001)
+            selcted_path = 1.25 * min(1, sensing_info.speed/10) * ( map_value(abs(avoidance_angle),0,50,0,1) + 1.5)* (avoidance_angle) / (steer_factor + 0.001)
             set_steering += selcted_path
-            
-        if abs(sensing_info.to_middle)+1 >= half_load_width :
-            
-            ref_road_in = ((sensing_info.to_middle - half_load_width) /80) * -1
-            set_steering += ref_road_in
-            
-            pass
+        middle_add = gen_ref_angle * ref_mid
+        set_steering += middle_add
         
+        if sensing_info.speed > 120:
+            set_brake = 0.25
+            set_throttle = 0.7
         
 
         ## 긴급 및 예외 상황 처리 ########################################################################################
@@ -156,7 +149,7 @@ class DrivingClient(DrivingController):
         road_range = int(sensing_info.speed / 20)
         for i in range(0, road_range):
             fwd_angle = abs(sensing_info.track_forward_angles[i])
-            if fwd_angle > 40:  ## 커브가 45도 이상인 경우 brake, throttle 을 제어
+            if fwd_angle > 30:  ## 커브가 45도 이상인 경우 brake, throttle 을 제어
                 full_throttle = False
             if fwd_angle > 80:  ## 커브가 80도 이상인 경우 steering 까지 추가로 제어
                 emergency_brake = True
@@ -165,24 +158,24 @@ class DrivingClient(DrivingController):
         ## brake, throttle 제어
 
         set_brake = 0.0
-        if full_throttle == False:
-            # print(sensing_info.moving_angle)
-            set_brake = min(0.35 + map_value(abs(sensing_info.moving_angle), 0, 50, 0, 1), 1)
-            if sensing_info.speed > 100:
-                set_brake = 0.3
-            if sensing_info.speed > 120:
-                set_throttle = 0.7
-                set_brake = 0.4
-            if sensing_info.speed > 130:
-                set_throttle = 0.7
-                set_brake = 0.5
-        if emergency_brake:
-            if set_steering > 0:
-                set_steering += 0.3
-            else:
-                set_steering -= 0.3
-            set_brake = 0.3
-            set_throttle = -0.5
+        # if full_throttle == False:
+        #     # print(sensing_info.moving_angle)
+        #     set_brake = min(0.35 + map_value(abs(sensing_info.moving_angle), 0, 50, 0, 1), 1)
+        #     if sensing_info.speed > 100:
+        #         set_brake = 0.3
+        #     if sensing_info.speed > 120:
+        #         set_throttle = 0.7
+        #         set_brake = 0.4
+        #     if sensing_info.speed > 130:
+        #         set_throttle = 0.5
+        #         set_brake = 0.7
+        # if emergency_brake:
+        #     if set_steering > 0:
+        #         set_steering += 0.3
+        #     else:
+        #         set_steering -= 0.3
+        #     set_brake = 0.7
+        #     set_throttle = -0.5
 
         # if sensing_info.speed > 120:
         #     set_brake = 0.5

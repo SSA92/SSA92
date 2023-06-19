@@ -130,7 +130,7 @@ class DrivingClient(DrivingController):
         for i in range(0, road_range):
             fwd_angle = abs(sensing_info.track_forward_angles[i])
             max_angle = max(max_angle, fwd_angle)
-            if fwd_angle > 45:  ## 커브가 45도 이상인 경우 brake, throttle 을 제어
+            if fwd_angle > 50:  ## 커브가 45도 이상인 경우 brake, throttle 을 제어
                 full_throttle = False
                 self.is_last_corner = 3
 
@@ -141,7 +141,7 @@ class DrivingClient(DrivingController):
         
         if self.is_last_corner > 0:
             print(self.is_last_corner)
-            set_steering += 0.080 * self.is_last_corner / 3
+            set_steering += 0.088 * self.is_last_corner / 3
             self.is_last_corner -= 1
 
         set_throttle = 1.0
