@@ -135,9 +135,6 @@ class DrivingClient(DrivingController):
             selcted_path = 1.25 * min(1, sensing_info.speed/10) * ( map_value(abs(avoidance_angle),0,50,0,1) + 1.5)* (avoidance_angle) / (steer_factor + 0.001)
             set_steering += selcted_path
         
-        if sensing_info.speed > 100:
-            set_brake = 0.4
-            set_throttle = 0.7
         
 
         ## 긴급 및 예외 상황 처리 ########################################################################################
@@ -171,12 +168,27 @@ class DrivingClient(DrivingController):
         #         set_brake = 0.7
         if emergency_brake:
             if set_steering > 0:
-                set_steering += 0.3
+                set_steering += 0.25
             else:
-                set_steering -= 0.3
+                set_steering -= 0.25
             set_brake = 0.7
             set_throttle = -0.3
 
+        if sensing_info.speed > 100:
+            set_brake = 0.4
+            set_throttle = 0.7
+            
+        # if sensing_info.speed > 100 and len(sensing_info.track_forward_obstacles[:8]) > 0:
+        #     print("장애물!")
+        #     # if sensing_info.speed > 135:
+        #     #     set_brake = 0.5
+        #     #     set_throttle = 0.7
+        #     if sensing_info.speed > 120:
+        #         set_brake = 0.5
+        #         set_throttle = 0.7
+        #     else:
+        #         set_brake = 0.4
+        #     set_throttle = 0.7
 
         # 충돌확인
         if sensing_info.lap_progress > 0.5 and -1 < sensing_info.speed < 1 and not self.is_accident:
@@ -479,7 +491,7 @@ def path_planning(car_speed, car_yaw, car_pos, forward_map, half_road_width, obs
             
             ## 직선주행 중일 경우, 장애물에 대한 가중치를 높게봄
             if abs(car_yaw) < 5:  
-                weight_of_obstacle *= 1.7
+                weight_of_obstacle *= 1.8
     
             
             # print((car_position - idx)* 0.1, "m")

@@ -392,14 +392,14 @@ class DrivingClient(DrivingController):
         if full_throttle == False:
             # print(sensing_info.moving_angle)
             set_brake = min(0.35 + map_value(abs(sensing_info.moving_angle), 0, 50, 0, 1), 1)
-            if sensing_info.speed > 100:
-                set_brake = 0.2
+            # if sensing_info.speed > 100:
+                # set_brake = 0.2
             if sensing_info.speed > 120:
                 set_throttle = 0.7
-                set_brake = 0.3
+                # set_brake = 0.3
             if sensing_info.speed > 130:
                 set_throttle = 0.5
-                set_brake = 0.4
+                # set_brake = 0.4
         if emergency_brake:
             if set_steering > 0:
                 set_steering += 0.3
@@ -502,12 +502,12 @@ class DrivingClient(DrivingController):
             self.accident_count = 0
             self.recovery_count = 0
             
-        if sensing_info.moving_forward and abs(sensing_info.to_middle) > 7.5:
-            print("긴급조향", sensing_info.to_middle, sensing_info.moving_angle)
-            if sensing_info.moving_angle > 50:
-                set_steering = -0.3
-            elif sensing_info.moving_angle < -50:
-                set_steering = 0.3
+        # if sensing_info.moving_forward and abs(sensing_info.to_middle) > 7.5:
+        #     print("긴급조향", sensing_info.to_middle, sensing_info.moving_angle)
+        #     if sensing_info.moving_angle > 50:
+        #         set_steering = -0.3
+        #     elif sensing_info.moving_angle < -50:
+        #         set_steering = 0.3
         
             
         if not sensing_info.moving_forward and not self.is_accident and (self.accident_count + self.recovery_count) < 7 and sensing_info.speed > 3:
