@@ -136,13 +136,14 @@ class DrivingClient(DrivingController):
             set_steering += selcted_path
         
         if sensing_info.speed > 100:
-            set_brake = 0.35
-            set_throttle = 0.75
+            set_brake = 0.4
+            set_throttle = 0.7
         
 
         ## 긴급 및 예외 상황 처리 ########################################################################################
         full_throttle = True
         emergency_brake = False
+
         ## 전방 커브의 각도가 큰 경우 속도를 제어함
         ## 차량 핸들 조정을 위해 참고하는 커브 보다 조금 더 멀리 참고하여 미리 속도를 줄임
         road_range = int(sensing_info.speed / 20)
@@ -157,28 +158,25 @@ class DrivingClient(DrivingController):
         ## brake, throttle 제어
 
         set_brake = 0.0
-        if full_throttle == False:
-            # print(sensing_info.moving_angle)
-            set_brake = min(0.35 + map_value(abs(sensing_info.moving_angle), 0, 50, 0, 1), 1)
-            if sensing_info.speed > 100:
-                set_brake = 0.3
-            if sensing_info.speed > 120:
-                set_throttle = 0.7
-                set_brake = 0.4
-            if sensing_info.speed > 130:
-                set_throttle = 0.5
-                set_brake = 0.7
+        # if full_throttle == False:
+        #     # print(sensing_info.moving_angle)
+        #     set_brake = min(0.35 + map_value(abs(sensing_info.moving_angle), 0, 50, 0, 1), 1)
+        #     if sensing_info.speed > 100:
+        #         set_brake = 0.3
+        #     if sensing_info.speed > 120:
+        #         set_throttle = 0.7
+        #         set_brake = 0.4
+        #     if sensing_info.speed > 130:
+        #         set_throttle = 0.5
+        #         set_brake = 0.7
         if emergency_brake:
             if set_steering > 0:
                 set_steering += 0.3
             else:
                 set_steering -= 0.3
-            set_brake = 0.4
-            # set_throttle = -0.2
+            set_brake = 0.7
+            set_throttle = -0.3
 
-        # if sensing_info.speed > 120:
-        #     set_brake = 0.5
-        #     set_throttle = 0.7
 
         # 충돌확인
         if sensing_info.lap_progress > 0.5 and -1 < sensing_info.speed < 1 and not self.is_accident:
