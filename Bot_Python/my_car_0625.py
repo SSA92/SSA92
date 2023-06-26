@@ -119,10 +119,15 @@ class DrivingClient(DrivingController):
         ## 2. 장애물에 따른 장애물 극복 로직
         ### 2.1 장애물 파악
         objects = analyze_obstacles(sensing_info.speed, sensing_info.to_middle, sensing_info.track_forward_obstacles)
-        objs = calculate_obstacles(sensing_info.to_middle, sensing_info.track_forward_angles, sensing_info.distance_to_way_points, objects)
-        target_obj = objects if abs(sensing_info.moving_angle) <= 5 else objs
+        print('#######################')
+        print('ang : ', sensing_info.moving_angle)
+        print('before :',objects)
+        if abs(sensing_info.moving_angle) >= 5:
+            objects = calculate_obstacles(sensing_info.to_middle, sensing_info.track_forward_angles, sensing_info.distance_to_way_points, objects)
+        print(' after :',objects)
+        print('#######################')
         ### 2.2 전방 파악
-        mapped_data = VFH_grid_map(sensing_info.speed, half_load_width, target_obj)
+        mapped_data = VFH_grid_map(sensing_info.speed, half_load_width, objects)
         ### 2.3 전방 데이터를 바탕으로 경로 설정
         path_recommend = path_planning(sensing_info.speed, sensing_info.moving_angle, sensing_info.to_middle, mapped_data, half_load_width, sensing_info.track_forward_obstacles)
         ### 2.4 해당 경로를 바탕으로 회피각도 설정
@@ -181,7 +186,7 @@ class DrivingClient(DrivingController):
         if len(sensing_info.track_forward_obstacles) >= 5 and sensing_info.track_forward_obstacles[0]['dist'] <= 100 and sensing_info.speed > 115:
                 set_brake = 0.7
                 set_throttle = 0.3
-                   
+
         # print(sensing_info.track_forward_obstacles)
         if len(sensing_info.track_forward_obstacles) > 0 and sensing_info.track_forward_obstacles[0]['dist'] <= 70 and sensing_info.speed > 120:
             set_brake = 0.5
@@ -384,7 +389,7 @@ class DrivingClient(DrivingController):
         player_name = ""
         return player_name
 
-grid_size = 0.1
+grid_size = 0.05
 
 
 ## 인코스 달리는 로직 == 변경예정
@@ -503,10 +508,10 @@ def calculate_obstacles(to_middle, track_forward_angles, distance_to_way_points,
         d, m = obj['dist'] - near, obj['to_middle']
         if d > 0:
             n, k = int(d // 10), d % 10
-            ang = (90 - angles[n] * plag) * pi / 180
+            ang = (90 - angles[n+1] * plag) * pi / 180
             obs.append({
-                'dist' : points[n] * sin(sum(ts[:n]) * pi / 180) + k * sin(ang) - m * cos(ang),
-                'to_middle' : - points[n] * plag * cos(sum(ts[:n]) * pi / 180) + k * cos(ang) + m * sin(ang)
+                'dist' : points[n+1] * sin(sum(ts[:n+1]) * pi / 180) + k * sin(ang) - m * cos(ang),
+                'to_middle' : - points[n+1] * plag * cos(sum(ts[:n+1]) * pi / 180) + k * cos(ang) + m * sin(ang)
                 })
     
     return obs
@@ -530,7 +535,7 @@ def VFH_grid_map(car_speed, half_road_width, obstacles) -> list:
         generalized = map_value(A, min_A, 200, 10, 0) 
         if 0 <= cell_position < num_cells:
             grid_map[cell_position] += generalized
-            for i in range(1,int(1/grid_size *1.8)):  # 장애물의 좌우 폭을 고려, 그리드가 0.1m 이므로 1m씩 추가 및 여유 0.7m 추가
+            for i in range(1,int(1/grid_size *1.6)):  # 장애물의 좌우 폭을 고려, 그리드가 0.1m 이므로 1m씩 추가 및 여유 0.7m 추가
                 if 0 <= cell_position - i < num_cells:
                     grid_map[cell_position - i] += generalized
                 if 0 <= cell_position + i < num_cells:
@@ -568,7 +573,7 @@ def path_planning(car_speed, car_yaw, car_pos, forward_map, half_road_width, obs
             weight_of_obstacle = calculate_weight(forward_map[idx], 0, 10,1) 
             score_closest_point = calculate_weight(car_position, idx, num_cells, max_score=50) 
             
-            for i in range(1,int(1/grid_size *1.8)):  # 차량의 폭을 고려, 그리드가 0.1m 이므로 1m씩 추가 및 여유 0.5m 추가
+            for i in range(1,int(1/grid_size *1.6)):  # 차량의 폭을 고려, 그리드가 0.1m 이므로 1m씩 추가 및 여유 0.5m 추가
             # 해당 지점에 히스토그램의 값이10 이상인 장애물이 있을경우, 가중치를 최소화
                 if (0 <= idx - i < num_cells and 0< forward_map[idx - i] >= 9.99):
                     weight_of_obstacle = 0.3
