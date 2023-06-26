@@ -304,9 +304,9 @@ class DrivingClient(DrivingController):
             next_pos = self.PID_controller(sensing_info.to_middle, target_pos , 'positioning', factor=1, kP=P, kI=I, kD=0.1)
             # print("0.1초 뒤",next_pos)
             proximate_dist = ((sensing_info.speed /3.6)+ 4.001)*4
-            target_angle = _required_angle(proximate_dist, sensing_info.to_middle, target_pos)
+            target_angle = _required_angle(proximate_dist, sensing_info.to_middle, next_pos)
             # target_angle = (target_angle + sensing_info.track_forward_angles[0])/2
-            next_angle = self.PID_controller(sensing_info.moving_angle, target_angle , 'cornering', factor=1, kP=1, kI=1, kD=0.1)
+            # next_angle = self.PID_controller(sensing_info.moving_angle, target_angle , 'cornering', factor=1, kP=1, kI=1, kD=0.1)
             t_ang = 1 * min(1, sensing_info.speed/100) * (target_angle) / (steer_factor + 0.001)
             set_steering += t_ang
 
@@ -341,15 +341,16 @@ class DrivingClient(DrivingController):
         ## 2.5 장애물 회피 각도 제공
         if avoidance_angle:
             
-            selcted_path = 1.25 * min(1, sensing_info.speed/100) * ( map_value(abs(avoidance_angle),0,50,0,1) + 1.5) * (avoidance_angle) / (steer_factor + 0.001)
+            selcted_path = 1.25 * min(1, sensing_info.speed/100) * ( map_value(abs(avoidance_angle),0,50,0,1) + 1) * (avoidance_angle) / (steer_factor + 0.001)
             set_steering += selcted_path
         
         middle_add = gen_ref_angle * ref_mid
-        if (not avoidance_angle) or (abs(sensing_info.to_middle) >= half_load_width - 3) :
+        if (not avoidance_angle) and (abs(sensing_info.to_middle) >= half_load_width - 3) :
             set_steering += middle_add
-        # if abs(sensing_info.to_middle)+2 >= half_load_width :
-        #     ref_road_in = ((sensing_info.to_middle - half_load_width) /80) * -1
-        #     set_steering += ref_road_in
+            
+            if abs(sensing_info.to_middle)+2 >= half_load_width :
+                ref_road_in = ((sensing_info.to_middle - half_load_width) /80) * -1
+                set_steering += ref_road_in
 
             
         
@@ -630,7 +631,7 @@ def VFH_grid_map(car_speed, half_road_width, obstacles) -> list:
         generalized = map_value(A, min_A, 200, 10, 0) 
         if 0 <= cell_position < num_cells:
             grid_map[cell_position] += generalized
-            for i in range(1,int(1/grid_size *1.6)):  # 장애물의 좌우 폭을 고려, 그리드가 0.1m 이므로 1m씩 추가 및 여유 0.7m 추가
+            for i in range(1,int(1/grid_size *1.8)):  # 장애물의 좌우 폭을 고려, 그리드가 0.1m 이므로 1m씩 추가 및 여유 0.7m 추가
                 if 0 <= cell_position - i < num_cells:
                     grid_map[cell_position - i] += generalized
                 if 0 <= cell_position + i < num_cells:
@@ -653,10 +654,10 @@ def local_path_planning(car_speed, car_yaw, car_pos, forward_map, half_road_widt
         
         for idx, point in enumerate(forward_map):
             cost = 1
-            if is_LEFT and car_position < idx: 
-                cost = 0.7
-            if not is_LEFT and car_position > idx:
-                cost = 0.7
+            # if is_LEFT and car_position < idx and abs(car_yaw) > 5: 
+            #     cost = 0.5
+            # if not is_LEFT and car_position > idx and abs(car_yaw) > 5:
+            #     cost = 0.5
         
             if point >= 9 : continue # 장애물이 있는 지점은 무시 0 점
             
