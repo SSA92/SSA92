@@ -32,6 +32,9 @@ class DrivingClient(DrivingController):
         self.steer_list = []
         self.reverse_drive = 0
         self.reverse_steer = 0
+        
+        self.is_collided = False
+        self.collided_counter = 20
         #
         # Editing area ends
         # ==========================================================#
@@ -114,7 +117,8 @@ class DrivingClient(DrivingController):
             self.prev_E_cornering = 0
             ## 차량의 차선 중앙 정렬을 위한 미세 조정 값 계산
             
-    
+        if sensing_info.collided : self.is_collided = True
+
         
         ## 2. 장애물에 따른 장애물 극복 로직
         ### 2.1 장애물 파악
@@ -122,10 +126,15 @@ class DrivingClient(DrivingController):
         print('#######################')
         print('ang : ', sensing_info.moving_angle)
         print('before :',objects)
-        if abs(sensing_info.moving_angle) >= 5:
+        if not self.is_collided or abs(sensing_info.moving_angle) >= 3:
+        # if abs(sensing_info.moving_angle) >= 3:
             objects = calculate_obstacles(sensing_info.to_middle, sensing_info.track_forward_angles, sensing_info.distance_to_way_points, objects)
         print(' after :',objects)
         print('#######################')
+        
+        if self.is_collided : 
+            self.collided_counter -= 1
+            if self.collided_counter <= 0 : self.is_collided = False
         ### 2.2 전방 파악
         mapped_data = VFH_grid_map(sensing_info.speed, half_load_width, objects)
         ### 2.3 전방 데이터를 바탕으로 경로 설정
@@ -230,7 +239,6 @@ class DrivingClient(DrivingController):
         # if sensing_info.speed > 100:
         #     set_brake = 0.4
         #     set_throttle = 0.7
-            
         # if sensing_info.speed > 100 and len(sensing_info.track_forward_obstacles[:8]) > 0:
         #     print("장애물!")
         #     # if sensing_info.speed > 135:
@@ -490,7 +498,7 @@ def calculate_obstacles(to_middle, track_forward_angles, distance_to_way_points,
     # 오른쪽인가 왼쪽인가
     plag = 1 if to_middle >= 0 else -1
     points = [to_middle*plag, ] + distance_to_way_points
-    angles = [0,] + [angle * plag for angle in track_forward_angles]
+    angles = [0,] + [angle if to_middle >= 0 else -angle for angle in track_forward_angles]
 
     bo = [90, ]
     ts = []
@@ -504,15 +512,16 @@ def calculate_obstacles(to_middle, track_forward_angles, distance_to_way_points,
     # 장애물 좌표
     obs = []
     near = abs(points[0] * cos((90 - angles[1]) * pi / 180)) + points[1] * cos(bo[1] * pi / 180)
+    print(ts)
     for obj in track_forward_obstacles:
         d, m = obj['dist'] - near, obj['to_middle']
-        if d > 0:
-            n, k = int(d // 10), d % 10
-            ang = (90 - angles[n+1] * plag) * pi / 180
-            obs.append({
-                'dist' : points[n+1] * sin(sum(ts[:n+1]) * pi / 180) + k * sin(ang) - m * cos(ang),
-                'to_middle' : - points[n+1] * plag * cos(sum(ts[:n+1]) * pi / 180) + k * cos(ang) + m * sin(ang)
-                })
+
+        n, k = int(d // 10), d % 10
+        ang = (90 - angles[n+1] * plag) * pi / 180
+        obs.append({
+            'dist' : points[n+1] * sin(sum(ts[:n+1]) * pi / 180) + k * sin(ang) - m * cos(ang),
+            'to_middle' : - points[n+1] * plag * cos(sum(ts[:n+1]) * pi / 180) + k * cos(ang) + m * sin(ang)
+            })
     
     return obs
 
@@ -573,7 +582,7 @@ def path_planning(car_speed, car_yaw, car_pos, forward_map, half_road_width, obs
             weight_of_obstacle = calculate_weight(forward_map[idx], 0, 10,1) 
             score_closest_point = calculate_weight(car_position, idx, num_cells, max_score=50) 
             
-            for i in range(1,int(1/grid_size *1.6)):  # 차량의 폭을 고려, 그리드가 0.1m 이므로 1m씩 추가 및 여유 0.5m 추가
+            for i in range(1,int(1/grid_size *1.7)):  # 차량의 폭을 고려, 그리드가 0.1m 이므로 1m씩 추가 및 여유 0.5m 추가
             # 해당 지점에 히스토그램의 값이10 이상인 장애물이 있을경우, 가중치를 최소화
                 if (0 <= idx - i < num_cells and 0< forward_map[idx - i] >= 9.99):
                     weight_of_obstacle = 0.3
@@ -609,7 +618,7 @@ def path_planning(car_speed, car_yaw, car_pos, forward_map, half_road_width, obs
         return target_point
     else:
         # print("트랙을 벗어났습니다.")
-        return - 1
+        return -1
 
 def get_max_pointed_path(lst):
     max_value = max(lst)
@@ -619,7 +628,6 @@ def get_max_pointed_path(lst):
 def calculate_weight(car_inform, target_inform, total, max_score=100):
     diff = abs(car_inform - target_inform)
     weight = round(max_score * (1 - diff/total), 1) 
-
     return max(0, weight)
 
 def generate_path(car_speed, car_pos, half_road_width, recommended_path, obstacles):
