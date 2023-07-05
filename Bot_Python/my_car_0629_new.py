@@ -102,7 +102,7 @@ class DrivingClient(DrivingController):
         ## 2. 장애물에 따른 장애물 극복 로직
         ### 2.1 장애물 파악
         objects = analyze_obstacles(sensing_info.speed, sensing_info.to_middle, sensing_info.track_forward_obstacles)
-        if not self.is_collided and (abs(ref_angle) >= 5 ):# prepare_corner(reli_routeInform)):
+        if not self.is_collided and (abs(ref_angle) >= 4 ):# prepare_corner(reli_routeInform)):
         # if abs(sensing_info.moving_angle) >= 3:
             objects = calculate_obstacles(sensing_info.to_middle, sensing_info.track_forward_angles, sensing_info.distance_to_way_points, objects)
         
