@@ -267,30 +267,20 @@ class DrivingClient(DrivingController):
         
         ## 0.2 break 값
         set_brake = 0
+        ## 0.3. 차량의 Speed 에 따라서 핸들을 돌리는 값[steer_factor]
+        value = map_value(sensing_info.speed, 0,200,2,0.75)
+        steer_factor = sensing_info.speed * value
+        # if sensing_info.speed > 70: steer_factor = sensing_info.speed * 0.9
+        # if sensing_info.speed > 100: steer_factor = sensing_info.speed * 0.75
+        # if sensing_info.speed > 150: steer_factor = sensing_info.speed * 0.66
+        # if sensing_info.speed > 170: steer_factor = sensing_info.speed * 0.5
         
-        ## 0. 기본값 세팅
-        if sensing_info.speed < 10:
-            angle_num = 1
-        elif sensing_info.speed < 40:
-            angle_num = 2
-        elif sensing_info.speed < 90:
-            angle_num = 3
-        elif sensing_info.speed < 140:
-            angle_num = 4
-        else:
-            angle_num = 5
+        ## 0.4 main route로 가기위한 steering angle 설정
+        set_steering = (ref_angle - sensing_info.moving_angle) / (steer_factor + 0.001)
 
-        plot()
-        ref_angle = sensing_info.track_forward_angles[angle_num] if angle_num > 0 else 0
-        
-        ref_angle = math.degrees(math.atan2(self.Road[angle_num][0] , self.Road[angle_num][1]))
-        
         ## 0.3. 차량의 Speed 에 따라서 핸들을 돌리는 값[steer_factor]
         steer_factor = map_value(sensing_info.speed, 0, 200, 200, 60)
         
-        ## 0.4 main route로 가기위한 steering angle 설정
-        set_steering = ref_angle - sensing_info.moving_angle
-        set_steering /= steer_factor + 0.001
 
 
         ## 2. 장애물에 따른 장애물 극복 로직
@@ -405,8 +395,8 @@ class DrivingClient(DrivingController):
             # print("collided")
             back_dis = sensing_info.to_middle
             # 충돌 지점에 따라 후진 카운트 조절 (스피드맵 : 7 , 싸피맵 : 10)
-            if abs(back_dis) > 7:
-                self.back_dis = abs(back_dis) * 2 # (스피드맵 : 1.37 , 싸피맵 : 1.85)
+            if abs(back_dis) > 10:
+                self.back_dis = abs(back_dis) * 1.37 # (스피드맵 : 1.37 , 싸피맵 : 1.85)
 
         # 충돌인지
         if self.accident_count > 7:
@@ -451,11 +441,11 @@ class DrivingClient(DrivingController):
             # print("방향", sensing_info.moving_forward)
             # 도로 밖에서 다시 시작하면 도로쪽으로 조향하면서 가속 (스피드맵 : 8 , 싸피맵 : 11)
             angle = sensing_info.moving_angle
-            steer = angle * 0.05
-            print(steer, angle)
+            steer = angle * 0.012
+            # print(steer, angle)
             self.steer_list.append(steer)
             # 도로 밖일 때
-            if sensing_info.to_middle >= 8 or sensing_info.to_middle <= -8:
+            if sensing_info.to_middle >= 11 or sensing_info.to_middle <= -11:
                 set_steering = -steer
                 # print("도로밖")
             elif -8 < sensing_info.to_middle < 8:
@@ -478,13 +468,6 @@ class DrivingClient(DrivingController):
             self.accident_count = 0
             self.recovery_count = 0
             
-        if sensing_info.moving_forward and abs(sensing_info.to_middle) > 7.5:
-            # print("긴급조향", sensing_info.to_middle, sensing_info.moving_angle)
-            if sensing_info.moving_angle > 50:
-                set_steering = -0.3
-            elif sensing_info.moving_angle < -50:
-                set_steering = 0.3
-        
             
         if not sensing_info.moving_forward and not self.is_accident and (self.accident_count + self.recovery_count) < 7 and sensing_info.speed > 3:
             self.reverse_drive += 1
@@ -505,6 +488,7 @@ class DrivingClient(DrivingController):
             # print("역주행 수정")
             set_steering = self.reverse_steer
             set_throttle = 0.7
+
 
 
         # Moving straight forward

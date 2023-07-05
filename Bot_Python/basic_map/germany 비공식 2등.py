@@ -1,5 +1,6 @@
 from DrivingInterface.drive_controller import DrivingController
 
+import math
 from math import atan2, tan, pi, cos, sin, ceil, sqrt
 
 class DrivingClient(DrivingController):
@@ -26,15 +27,23 @@ class DrivingClient(DrivingController):
         self.prev_E_cornering = 0
         self.I_cornering = 0
 
-        ## 역주행 관련 파라미터
-        self.stop_count = 0
-        self.back_dis = 15
-        self.steer_list = []
-        self.reverse_drive = 0
-        self.reverse_steer = 0
         #
         # Editing area ends
         # ==========================================================#
+
+        #### 충돌
+        self.is_accident = False
+        self.recovery_count = 0
+        self.accident_count = 0
+        self.stop_count = 0
+        self.back_dis = 15
+        self.steer_list = []
+        
+        ## 역주행 관련 파라미터
+        self.reverse_drive = 0
+        self.reverse_steer = 0
+
+
         super().__init__()
 
     def control_driving(self, car_controls, sensing_info):
@@ -70,7 +79,6 @@ class DrivingClient(DrivingController):
         ## 0. 기본값 세팅
         angle_num = int(sensing_info.speed / 45)
         ref_angle = sensing_info.track_forward_angles[angle_num] if angle_num > 0 else 0
-        ref_mid = (sensing_info.to_middle /(sensing_info.speed+0.001)) * -0.8
         ref_distance = sensing_info.distance_to_way_points[angle_num] if angle_num > 0 else 0
         
         
@@ -90,9 +98,6 @@ class DrivingClient(DrivingController):
         
         ## 0.4 main route로 가기위한 steering angle 설정
         set_steering = (ref_angle - sensing_info.moving_angle) / (steer_factor + 0.001)
-        gen_ref_angle = map_value(abs(ref_angle),0,50,0,1) + 0.55
-        middle_add = gen_ref_angle * ref_mid
-        set_steering += middle_add
         
         
         ## 1. 도로의 형상 파악
@@ -121,6 +126,8 @@ class DrivingClient(DrivingController):
     
         
         ## 2. 장애물에 따른 장애물 극복 로직
+        gen_ref_angle = map_value(abs(ref_angle),0,50,0,1) + 0.55
+        ref_mid = (sensing_info.to_middle /(sensing_info.speed+0.001)) * -1.2
         ### 2.1 장애물 파악
         objects = analyze_obstacles(sensing_info.speed, sensing_info.to_middle, sensing_info.track_forward_obstacles)
         ### 2.2 전방 파악
@@ -132,74 +139,111 @@ class DrivingClient(DrivingController):
         # print(avoidance_angle)
         ## 2.5 장애물 회피 각도 제공
         if avoidance_angle:
-            avoid_factor = abs(set_steering - avoidance_angle)+1
-            
-            
-            selcted_path = 1.25/avoid_factor * avoid_factor* min(1, sensing_info.speed/100) * ( map_value(abs(avoidance_angle),0,50,0,1) + 1.5) * (avoidance_angle) / (steer_factor + 0.001)
+            selcted_path = 1.25 * min(1, sensing_info.speed/100) * ( map_value(abs(avoidance_angle),0,50,0,1) + 1.5)* (avoidance_angle) / (steer_factor + 0.001)
             set_steering += selcted_path
-            
-        if abs(sensing_info.to_middle)+1 >= half_load_width :
-            
-            ref_road_in = ((sensing_info.to_middle - half_load_width) /80) * -1
-            set_steering += ref_road_in
-            
-            pass
+        middle_add = gen_ref_angle * ref_mid
+        set_steering += middle_add
         
+        if sensing_info.speed > 100:
+            set_brake = 0.5
+            set_throttle = 0.7
         
+        #########################################
+
+        ###########################################################################
+        ### 도로 정보 좌표변환
+        A = 90
+        track_forward_angles = [0,] + sensing_info.track_forward_angles
+        distance_to_way_points = [sensing_info.to_middle,] + sensing_info.distance_to_way_points
+        Angle_list = [0,]
+        
+        X_list = []
+        Y_list = []
+
+        for i in range(20):
+            C = 180 - (track_forward_angles[i + 1] - track_forward_angles[i]) - A
+
+            temp = distance_to_way_points[i] * math.sin(math.radians(C)) / max(0.001,distance_to_way_points[i + 1])
+            
+            temp = min(max(temp, -1), 1)
+            A = math.degrees(math.asin(temp))
+
+            car_to_point_angle = 180 - C - A
+
+            Angle_list.append(car_to_point_angle + Angle_list[i])
+
+            X = -math.cos(math.radians(Angle_list[i + 1])) * distance_to_way_points[i + 1]
+            Y = math.sin(math.radians(Angle_list[i + 1])) * distance_to_way_points[i + 1]
+
+            X_list.append(X)
+            Y_list.append(Y)
+
+        Angle_list = Angle_list[1:]
+
+        ###########################################################################
+
+        if False and sensing_info.track_forward_obstacles and objects and sensing_info.track_forward_obstacles[0]['dist'] > 3:
+            print(sensing_info.track_forward_obstacles)
+            print(sensing_info.track_forward_obstacles[0])
+            print("path_recommend : ", path_recommend / 10 - self.half_road_limit)
+
+            target = int(sensing_info.track_forward_obstacles[0]['dist'] // 10)
+
+            X = X_list[target] + math.cos(math.radians(sensing_info.track_forward_angles[target])) * path_recommend / 10
+            Y = Y_list[target] - math.sin(math.radians(sensing_info.track_forward_angles[target])) * path_recommend / 10
+            print("X : ", X, ",Y : ", Y)
+
+            set_steering = math.degrees(math.atan(X / Y)) - sensing_info.moving_angle 
+            set_steering /= map_value(sensing_info.speed, 0, 200, 200, (sensing_info.speed + 0.001) // 1.6)
+            print("조향각 : ", set_steering)
+
+
+        #########################################
+
 
         ## 긴급 및 예외 상황 처리 ########################################################################################
-        full_throttle = True
-        emergency_brake = False
 
-        ## 전방 커브의 각도가 큰 경우 속도를 제어함
-        ## 차량 핸들 조정을 위해 참고하는 커브 보다 조금 더 멀리 참고하여 미리 속도를 줄임
-        road_range = int(sensing_info.speed / 20)
+        ########################################
+        # 커브각이 클때 쓰로틀 브레이크 설정
+        set_throttle = 1.0
+        set_brake = 0.0
+
+        full_throttle = True
+        road_range = int(sensing_info.speed / 15)
+        max_angle = 0
         for i in range(0, road_range):
             fwd_angle = abs(sensing_info.track_forward_angles[i])
-            if fwd_angle > 40:  ## 커브가 45도 이상인 경우 brake, throttle 을 제어
+            max_angle = max(max_angle, fwd_angle)
+            if fwd_angle > 50:  ## 커브가 45도 이상인 경우 brake, throttle 을 제어
                 full_throttle = False
-            if fwd_angle > 80:  ## 커브가 80도 이상인 경우 steering 까지 추가로 제어
-                emergency_brake = True
-                break
+                self.is_last_corner = 3
 
         ## brake, throttle 제어
-
-        set_brake = 0.0
         if full_throttle == False:
-            # print(sensing_info.moving_angle)
-            set_brake = min(0.35 + map_value(abs(sensing_info.moving_angle), 0, 50, 0, 1), 1)
-            if sensing_info.speed > 100:
-                set_brake = 0.2
-            if sensing_info.speed > 120:
-                set_throttle = 0.7
-                set_brake = 0.3
-            if sensing_info.speed > 130:
-                set_throttle = 0.7
-                set_brake = 0.4
-        if emergency_brake:
-            if set_steering > 0:
-                set_steering += 0.3
-            else:
-                set_steering -= 0.3
-            set_brake = 0.3
-            set_throttle = -0.5
+            target_speed = map_value(max_angle, 0, 90, 180, 50)
+            if sensing_info.speed - target_speed >= 50:
+                set_throttle = map_value(sensing_info.speed - target_speed, 50, 160, 1, 0)
+            set_brake = map_value(sensing_info.speed - target_speed, 0, 160, 0, 1)
 
-        # if sensing_info.speed > 120:
-        #     set_brake = 0.5
-        #     set_throttle = 0.7
+        if self.is_debug:
+            print(f"curve brake on [set_throttle :{set_throttle}]")
+            print(f"curve brake on [set_brake : {set_brake}]")
 
+        ########################################
+        
+        ### control_driving 마지막 부분에 추가
         # 충돌확인
         if sensing_info.lap_progress > 0.5 and -1 < sensing_info.speed < 1 and not self.is_accident:
             self.accident_count += 1
-            print("collided")
+            # print("collided")
             back_dis = sensing_info.to_middle
             # 충돌 지점에 따라 후진 카운트 조절 (스피드맵 : 7 , 싸피맵 : 10)
-            if abs(back_dis) > 10:
-                self.back_dis = abs(back_dis) * 1.37 # (스피드맵 : 1.85 , 싸피맵 : 1.37)
+            if abs(back_dis) > 7:
+                self.back_dis = abs(back_dis) * 1.85 # (스피드맵 : 1.37 , 싸피맵 : 1.85)
 
         # 충돌인지
         if self.accident_count > 7:
-            print("사고발생", self.accident_count)
+            # print("사고발생", self.accident_count)
             self.is_accident = True
 
         # 후진
@@ -221,18 +265,18 @@ class DrivingClient(DrivingController):
             set_brake = 0
             self.recovery_count += 1
             self.stop_count += 1
-            print("후진", self.stop_count)
+            # print("후진", self.stop_count)
 
         # 차량 안밀리게 어느정도 후진하면 가속으로 상쇄
         if self.recovery_count > 11:
-            print("상쇄")
+            # print("상쇄")
             set_throttle = 1
 
         # 다시 진행
         # 도로 밖에서 후진해올때 도로 중앙근처로 오면 바로 다시시작
         if self.recovery_count >= self.back_dis or (self.back_dis > 15 and abs(sensing_info.to_middle) < 3):
-            print("다시시작", self.recovery_count)
-            print("후진 길이", self.back_dis)
+            # print("다시시작", self.recovery_count)
+            # print("후진 길이", self.back_dis)
             self.is_accident = False
             self.recovery_count = 0
             self.accident_count = 0
@@ -242,15 +286,15 @@ class DrivingClient(DrivingController):
             # 도로 밖에서 다시 시작하면 도로쪽으로 조향하면서 가속 (스피드맵 : 8 , 싸피맵 : 11)
             angle = sensing_info.moving_angle
             steer = angle * 0.012
-            print(steer, angle)
+            # print(steer, angle)
             self.steer_list.append(steer)
             # 도로 밖일 때
-            if sensing_info.to_middle >= 11 or sensing_info.to_middle <= -11:
+            if sensing_info.to_middle >= 8 or sensing_info.to_middle <= -8:
                 set_steering = -steer
-                print("도로밖")
-            elif -11 < sensing_info.to_middle < 11:
+                # print("도로밖")
+            elif -8 < sensing_info.to_middle < 8:
                 set_steering = steer
-                print("도로 안")
+                # print("도로 안")
             # 도로 오른쪽일 떄
             # if sensing_info.to_middle > 11:
             #     if angle < 0:
@@ -270,7 +314,7 @@ class DrivingClient(DrivingController):
                 steer = self.steer_list[-2] * -1.5
                 self.steer_list.append(steer)
                 set_steering = steer
-                print("조향반대", set_steering)
+                # print("조향반대", set_steering)
             
         if sensing_info.speed > 40:
             self.stop_count = 0
@@ -282,7 +326,7 @@ class DrivingClient(DrivingController):
             
         if not sensing_info.moving_forward and not self.is_accident and (self.accident_count + self.recovery_count) < 7 and sensing_info.speed > 3:
             self.reverse_drive += 1
-            print("역주행", self.reverse_drive)
+            # print("역주행", self.reverse_drive)
             if not self.reverse_steer:
                 if sensing_info.to_middle < 0:
                     self.reverse_steer = -1
@@ -296,7 +340,7 @@ class DrivingClient(DrivingController):
 
         # 역주행
         if self.reverse_drive > 5 and not self.is_accident:
-            print("역주행 수정")
+            # print("역주행 수정")
             set_steering = self.reverse_steer
             set_throttle = 0.7
 
@@ -315,9 +359,9 @@ class DrivingClient(DrivingController):
         car_controls.throttle = set_throttle
         car_controls.brake = set_brake
 
-        # if self.is_debug:
-        #     print("[MyCar] steering:{}, throttle:{}, brake:{}" \
-        #           .format(car_controls.steering, car_controls.throttle, car_controls.brake))
+        if self.is_debug:
+            print("[MyCar] steering:{}, throttle:{}, brake:{}" \
+                  .format(car_controls.steering, car_controls.throttle, car_controls.brake))
 
         #
         # Editing area ends
@@ -429,19 +473,23 @@ def VFH_grid_map(car_speed, half_road_width, obstacles) -> list:
     
     if not obstacles : return grid_map
     
-    proximate_dist = obstacles[0]['dist'] 
+    min_C = obstacles[0]['dist']
+    min_B = obstacles[0]['to_middle']
+    min_A = sqrt(abs(min_C**2 - min_B**2))
     # 가장 가까운 장애물을 바탕으로 장애물을 히스토그램으로 표현
     for obstacle in obstacles:
-        cell_position = int((obstacle['to_middle'] + half_road_width) / grid_size) 
-        generalized = map_value(obstacle['dist'], proximate_dist, 200, 10, 0) 
+        cell_position = int((obstacle['to_middle'] + half_road_width) / grid_size)
+        A = sqrt(abs(obstacle['to_middle']**2 - obstacle['dist']**2))
+        generalized = map_value(A, min_A, 200, 10, 0) 
         if 0 <= cell_position < num_cells:
             grid_map[cell_position] += generalized
-            for i in range(1,int(1/grid_size *1.7)):  # 장애물의 좌우 폭을 고려, 그리드가 0.1m 이므로 1m씩 추가 및 여유 0.5m 추가
+            for i in range(1,int(1/grid_size *1.6)):  # 장애물의 좌우 폭을 고려, 그리드가 0.1m 이므로 1m씩 추가 및 여유 0.7m 추가
                 if 0 <= cell_position - i < num_cells:
                     grid_map[cell_position - i] += generalized
                 if 0 <= cell_position + i < num_cells:
                     grid_map[cell_position + i] += generalized
     return grid_map
+
 
 
 ## 2.2 장애물을 바탕으로 경로 분석
@@ -452,35 +500,35 @@ def path_planning(car_speed, car_yaw, car_pos, forward_map, half_road_width, obs
     target_path = [0]*num_cells
 
     car_position = int((car_pos + half_road_width) / grid_size)
-    proximate_dist = ((car_speed /3.6)+ 4.001) *4  # m/0.1s
+    proximate_dist = ((car_speed /3.6)+ 4.601) *4  # m/0.1s
     min_obj_dist = 200 if not obstacles else obstacles[0]['dist']
     # print(f'가까운 물체 : {min_obj_dist} 예상 이동거리 :{proximate_dist}')
     # 차량이 도로 내에 있을 경우
     if 0<= car_position < num_cells:
         
         for idx, point in enumerate(forward_map):
-            if point >= 9.9 : continue # 장애물이 있는 지점은 무시 0 점
+            if point >= 9 : continue # 장애물이 있는 지점은 무시 0 점
             
             
             # 자동차의 진행방향과, 현재지점과 목표지점과각도의 유사성에 대한 가중치
             target_pos = _map2pos(idx, car_pos, grid_size, half_road_width)
             target_angle = _required_angle(min_obj_dist, car_pos, target_pos)
-            score_closest_angle = calculate_weight(car_yaw, target_angle, 50, max_score=20)
+            score_closest_angle = calculate_weight(car_yaw, target_angle, 50, max_score=34)
             weight_of_angle = calculate_weight(car_yaw, target_angle, 50, 1)
 
             
             # 차량 주행시 충돌 안전성에 관한 가중치
             # 현재의 위치에서 자동차의 진행 방향으로 계속 갔을 경우 충돌이 있는지 계산해야함
             weight_of_obstacle = calculate_weight(forward_map[idx], 0, 10,1) 
-            score_closest_point = calculate_weight(car_position, idx, num_cells, 80) 
+            score_closest_point = calculate_weight(car_position, idx, num_cells, 66) 
             
             for i in range(1,int(1/grid_size *1.7)):  # 차량의 폭을 고려, 그리드가 0.1m 이므로 1m씩 추가 및 여유 0.5m 추가
             # 해당 지점에 히스토그램의 값이10 이상인 장애물이 있을경우, 가중치를 최소화
                 if (0 <= idx - i < num_cells and 0< forward_map[idx - i] >= 9.99):
-                    weight_of_obstacle = 0.3
+                    weight_of_obstacle = 0.2
                     break
                 if (0 <= idx + i < num_cells and 0< forward_map[idx + i] >= 9.99):
-                    weight_of_obstacle = 0.3
+                    weight_of_obstacle = 0.2
                     break
             
             if (proximate_dist) > sqrt(((car_position - idx)* 0.1)**2 + min_obj_dist**2):
