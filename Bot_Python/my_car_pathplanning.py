@@ -157,9 +157,31 @@ class DrivingClient(DrivingController):
         player_name = ""
         return player_name
 
+### 아직 사용하지 않음 06.03 ###
 grid_size = 0.1
 I_ax = 0
 prev_E_ax = 0
+def PID_controller(_input, target, factor):
+    global I_ax, prev_E_ax
+    kP = 1.5
+    kI = 3
+    kD = 3
+    
+    dt = 0.1 # 신호가 0.1초마다 업데이트
+    
+    E_ax = _input + target*(factor + 0.001)
+    I_ax = dt * E_ax
+    dE_ax = (E_ax - prev_E_ax) / dt
+
+    # Clamp I_ax_integral to be between -1.0 and 1.0
+    I_ax = min(max(I_ax, -1.0), 1.0)
+    prev_E_ax = E_ax
+
+    Cont_ax = kP * E_ax + kI * I_ax + kD * dE_ax
+    Cont_ax /= (factor + 0.001)
+    return Cont_ax
+#################################################
+
 
 ## 장애물은 모든 맵 기준 2m 이며 to_middle 기준 좌우 1m입니다. 
 ## 1. 장애물을 분석
@@ -300,26 +322,6 @@ def _required_angle(proximate_dist, car_pos, target_pos):
     target_angle = max(min((atan2(proximate_dist, (car_pos - target_pos)) * (180/pi) - 90 ), 45), -45)
     return target_angle
     
-
-def PID_controller(_input, target, factor):
-    global I_ax, prev_E_ax
-    kP = 1.5
-    kI = 3
-    kD = 3
-    
-    dt = 0.1 # 신호가 0.1초마다 업데이트
-    
-    E_ax = _input + target*(factor + 0.001)
-    I_ax = dt * E_ax
-    dE_ax = (E_ax - prev_E_ax) / dt
-
-    # Clamp I_ax_integral to be between -1.0 and 1.0
-    I_ax = min(max(I_ax, -1.0), 1.0)
-    prev_E_ax = E_ax
-
-    Cont_ax = kP * E_ax + kI * I_ax + kD * dE_ax
-    Cont_ax /= (factor + 0.001)
-    return Cont_ax
 
 def map_value(value, min_value, max_value, min_result, max_result):
     '''maps value (or array of values) from one range to another'''
