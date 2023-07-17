@@ -485,11 +485,7 @@ def generate_path(car_speed, car_pos, half_road_width, recommended_path, obstacl
     global grid_size
     target_pos = _map2pos(recommended_path, car_pos, grid_size, half_road_width)
     if recommended_path == -1 : return
-    if not obstacles : return 0
-    # to_obstacle = obstacles[0]['dist'] if obstacles[0]['dist'] > 0 else 0
-    # new_point = _required_angle(to_obstacle, car_pos, target_pos)
-    # # r = to_obstacle * tan(new_point * (pi/180))*0.5
-    
+    if not obstacles : return 0    
     proximate_dist = (car_speed /3.6) # 자동차 주행 속도를 바탕으로 angle값 결정    
     required_angle = _required_angle(proximate_dist, car_pos, (target_pos))
     return required_angle 
@@ -497,27 +493,12 @@ def generate_path(car_speed, car_pos, half_road_width, recommended_path, obstacl
 def _map2pos(recommended_path, car_pos, grid_size, half_road_width):
     target_pos = ((recommended_path+1 ) * grid_size - half_road_width) # (idx +1) * 그리드 - width = to_middle inform
     return target_pos + 0.15 if car_pos <= target_pos else target_pos - 0.15 # 여유값 제공
+
 def _required_angle(proximate_dist, car_pos, target_pos):
     target_angle = (atan2(proximate_dist, (car_pos - target_pos)) * (180/pi) - 90 )
     # if abs(car_pos - target_pos) <= 0.2:
     #     return  target_angle + 0.3 if target_angle >= 0  else target_angle - 0.3
     return  target_angle
-    
-
-def PID_controller(_input, target, I_ , prev_E_, factor ,kP, kI, kD):
-    
-    dt = 0.1 # 신호가 0.1초마다 업데이트
-    
-    E_ax = _input + target*(factor + 0.001)
-    I_ += dt * E_ax
-    
-    dE_ax = (E_ax - prev_E_) / dt
-    # Clamp I_ax_integral to be between -1.0 and 1.0
-    prev_E_ = E_ax
-
-    Cont_ax = kP * E_ax + kI * I_ + kD * dE_ax
-    Cont_ax /= (factor + 0.001)
-    return Cont_ax
 
 def map_value(value, min_value, max_value, min_result, max_result):
     '''maps value (or array of values) from one range to another'''
