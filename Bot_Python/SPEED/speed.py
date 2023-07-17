@@ -1,6 +1,6 @@
 from DrivingInterface.drive_controller import DrivingController
 
-from math import atan2, asin, tan, pi, cos, sin, ceil, sqrt
+from math import atan2, tan, pi, cos, sin, ceil, sqrt
 
 class DrivingClient(DrivingController):
     def __init__(self):
@@ -119,9 +119,8 @@ class DrivingClient(DrivingController):
         ## 2. 장애물에 따른 장애물 극복 로직
         ### 2.1 장애물 파악
         objects = analyze_obstacles(sensing_info.speed, sensing_info.to_middle, sensing_info.track_forward_obstacles)
-        objs = calculate_obstacles(sensing_info.to_middle, sensing_info.track_forward_angles, sensing_info.distance_to_way_points, objects)
         ### 2.2 전방 파악
-        mapped_data = VFH_grid_map(sensing_info.speed, half_load_width, objs)
+        mapped_data = VFH_grid_map(sensing_info.speed, half_load_width, objects)
         ### 2.3 전방 데이터를 바탕으로 경로 설정
         path_recommend = path_planning(sensing_info.speed, sensing_info.moving_angle, sensing_info.to_middle, mapped_data, half_load_width, sensing_info.track_forward_obstacles)
         ### 2.4 해당 경로를 바탕으로 회피각도 설정
@@ -225,17 +224,6 @@ class DrivingClient(DrivingController):
         #     set_brake = 0.4
         #     set_throttle = 0.7
             
-        # if sensing_info.speed > 100 and len(sensing_info.track_forward_obstacles[:8]) > 0:
-        #     print("장애물!")
-        #     # if sensing_info.speed > 135:
-        #     #     set_brake = 0.5
-        #     #     set_throttle = 0.7
-        #     if sensing_info.speed > 120:
-        #         set_brake = 0.5
-        #         set_throttle = 0.7
-        #     else:
-        #         set_brake = 0.4
-        #     set_throttle = 0.7
 
         # 충돌확인
         if sensing_info.lap_progress > 0.5 and -1 < sensing_info.speed < 1 and not self.is_accident:
@@ -469,44 +457,6 @@ def analyze_obstacles(car_speed, car_pos, fw_obstacles) -> list:
             
     return target_obstacles
 
-def calculate_obstacles(to_middle, track_forward_angles, distance_to_way_points, track_forward_obstacles):
-    """    
-    Parameters:
-        to_middle: 중앙선으로부터의 거리
-        track_forward_angles: 앞쪽 각도 정보 리스트
-        distance_to_way_points: 웨이포인트까지의 거리 정보 리스트
-        track_forward_obstacles: 앞쪽 장애물 정보 리스트
-    
-    Returns:
-        obs: 장애물 좌표 리스트
-    """
-    
-    # 오른쪽인가 왼쪽인가
-    plag = 1 if to_middle >= 0 else -1
-    points = [to_middle*plag, ] + distance_to_way_points
-    angles = [0,] + [angle * plag for angle in track_forward_angles]
-
-    bo = [90, ]
-    ts = []
-    for i in range(20):
-        C = 180 - bo[i] - (angles[i+1] - angles[i])
-        temp = points[i] * sin(C * pi / 180) / points[i+1]
-        A = asin(temp if abs(temp) <= 1 else int(temp)) * 180 / pi
-        bo.append(A)
-        ts.append(180 - C - A)
-    
-    # 장애물 좌표
-    obs = []
-    near = abs(points[0] * cos((90 - angles[1]) * pi / 180)) + points[1] * cos(bo[1] * pi / 180)
-    for obj in track_forward_obstacles:
-        d, m = obj['dist'] - near, obj['to_middle']
-        if d > 0:
-            n, k = int(d // 10), d % 10
-            ang = (90 - angles[n] * plag) * pi / 180
-            obs.append([points[n] * sin(sum(ts[:n]) * pi / 180) + k * sin(ang) - m * cos(ang),
-                        - points[n] * plag * cos(sum(ts[:n]) * pi / 180) + k * cos(ang) + m * sin(ang)])
-    
-    return obs
 ## 2.1 VFH를 활용한 전방 파악
 def VFH_grid_map(car_speed, half_road_width, obstacles) -> list:
     global grid_size
@@ -515,25 +465,20 @@ def VFH_grid_map(car_speed, half_road_width, obstacles) -> list:
     grid_map = [0] * num_cells
     
     if not obstacles : return grid_map
-    near_obs = obstacles[0]
-    min_C = near_obs[0]
-    min_B = near_obs[1]
-    min_A = sqrt(abs(min_C**2 - min_B**2))
+    
+    proximate_dist = obstacles[0]['dist'] 
     # 가장 가까운 장애물을 바탕으로 장애물을 히스토그램으로 표현
     for obstacle in obstacles:
-        X = half_road_width + obstacle[1]
-        cell_position = int((X + half_road_width) / grid_size)
-        A = sqrt(abs(X**2 - obstacle[0]**2))
-        generalized = map_value(A, min_A, 200, 10, 0) 
+        cell_position = int((obstacle['to_middle'] + half_road_width) / grid_size) 
+        generalized = map_value(obstacle['dist'], proximate_dist, 200, 10, 0) 
         if 0 <= cell_position < num_cells:
             grid_map[cell_position] += generalized
-            for i in range(1,int(1/grid_size *1.7)):  # 장애물의 좌우 폭을 고려, 그리드가 0.1m 이므로 1m씩 추가 및 여유 0.7m 추가
+            for i in range(1,int(1/grid_size *1.75)):  # 장애물의 좌우 폭을 고려, 그리드가 0.1m 이므로 1m씩 추가 및 여유 0.5m 추가
                 if 0 <= cell_position - i < num_cells:
                     grid_map[cell_position - i] += generalized
                 if 0 <= cell_position + i < num_cells:
                     grid_map[cell_position + i] += generalized
     return grid_map
-
 
 
 ## 2.2 장애물을 바탕으로 경로 분석
