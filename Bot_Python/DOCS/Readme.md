@@ -2,5 +2,5 @@
 
 |                                                                                                           |                                                                                                           |
 | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| <img src="https://github.com/SSA92/SSA92/edit/main/Bot_Python/DOCS/semiFinal LP highlight.gif"> | <img src="https://github.com/SSA92/SSA92/edit/main/Bot_Python/DOCS/final LP highlight.gif"> |
+| <img src="https://github.com/SSA92/SSA92/tree/main/Bot_Python/DOCS/semiFinal LP highlight.gif"> | <img src="https://github.com/SSA92/SSA92/tree/main/Bot_Python/DOCS/final LP highlight.gif"> |
 | `첫번째 경기  하이라이트`                                                                                   | `두번째 경기 하이라이트`                                                                                    |
