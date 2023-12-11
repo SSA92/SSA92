@@ -59,18 +59,25 @@
 ---
 > 목표 : 경로 최적화를 통하여, 감속을 최소화 하여 경로 주행
 
+
+[Path Planning 정리 자료-업데이트 해주세요.]()
+
 <br>
 
 ### 1.2 **Local Path Planning** 
 ---
 > 목표 : 제공받는 장애물 자료를 바탕으로 안정적인 경로 탐색 및 제어시 발생하는 감속 최소화
- 
+
+
+[Local Path Planning 정리 자료-업데이트 해주세요.](./Bot_Python/DOCS/LocalPathPlanning.md)
 <br>
 
 ### 1.3 **Ego Vehicle Recovery System** 
 ---
 > 목표 : 충돌로 인한 차량 정지 시, 차량의 빠른 경로 복구
 
+
+[Path Planning 정리 자료-업데이트 해주세요.]()
 <br>
 
 ### 참고자료
