@@ -86,7 +86,8 @@ class DrivingClient(DrivingController):
         
         ## 2. 장애물에 따른 장애물 극복 로직
         ### 2.1 장애물 파악
-        objects = analyze_obstacles(sensing_info.speed, sensing_info.to_middle, sensing_info.track_forward_obstacles)
+        objects = analyze_obstacles(sensing_info.speed, sensing_info.to_middle, sensing_info.track_forward_obstacles, 
+                                    sensing_info.opponent_cars_info)
         
         if not self.is_collided and (abs(ref_angle) >= 4 ): 
             # 충돌 시 안정적인 장애물 회피를 위해 장애물의 위치에 대한 계산을 하지 않음
@@ -159,8 +160,8 @@ grid_size = 0.05 # VFH 매핑을 위한 Grid 값 설정.
 
 ## 장애물은 모든 맵 기준 2m 이며 to_middle 기준 좌우 1m입니다. 
 ## 1. 장애물을 분석
-def analyze_obstacles(car_speed, car_pos, fw_obstacles) -> list:
-    if len(fw_obstacles) == 0: 
+def analyze_obstacles(car_speed, car_pos, fw_obstacles, fw_opponent_cars) -> list:
+    if len(fw_obstacles) == 0 or len(fw_opponent_cars): 
         return []
     threshold_ttc = 4 # threshold_of time-to-colision 충돌 안전 s를 4초로 설정
     
@@ -171,7 +172,14 @@ def analyze_obstacles(car_speed, car_pos, fw_obstacles) -> list:
         if obstacles['dist'] <= 0 : continue                # 지나간 장애물일 경우 무시
         ttc = obstacles['dist']/((car_speed /3.6)+ 0.001)   # 시속에 3.6을 나누어 m/s로 차원을 맞춤
         if ttc <= threshold_ttc: target_obstacles.append(obstacles) # ttc가 4미만일 경우에 충돌을 고려함.
-            
+    
+    for obstacles in fw_opponent_cars:
+        obs_pos = obstacles['to_middle']
+        
+        if obstacles['dist'] <= 0 : continue                # 지나간 장애물일 경우 무시
+        ttc = obstacles['dist']/((car_speed /3.6)+ 0.001)   # 시속에 3.6을 나누어 m/s로 차원을 맞춤
+        if ttc <= threshold_ttc: target_obstacles.append(obstacles) # ttc가 4미만일 경우에 충돌을 고려함.
+    
     return target_obstacles
 
 def calculate_obstacles(to_middle, track_forward_angles, distance_to_way_points, track_forward_obstacles):
